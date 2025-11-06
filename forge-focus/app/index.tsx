@@ -1,11 +1,9 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View, Platform } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
 export default function WelcomeScreen() {
-  
-
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -82,13 +80,9 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#FFFFFF',
     fontSize: 18,
+    fontWeight: 'bold',
     letterSpacing: 1,
     textTransform: 'uppercase',
-    ...Platform.select({
-      ios: { fontFamily: 'System', fontWeight: 'bold' },
-      android: { fontFamily: 'sans-serif-medium', fontWeight: 'bold' },
-      default: { fontFamily: 'System', fontWeight: 'bold' },
-    }),
   },
   skipContainer: {
     marginTop: 20,
@@ -96,12 +90,8 @@ const styles = StyleSheet.create({
   skipText: {
     color: '#FFFFFF', 
     fontSize: 16,
+    fontWeight: 'bold',
     letterSpacing: 1,
     textTransform: 'uppercase',
-    ...Platform.select({
-      ios: { fontFamily: 'System', fontWeight: 'bold' },
-      android: { fontFamily: 'sans-serif', fontWeight: 'bold'},
-      default: { fontFamily: 'System',  fontWeight: 'bold' },
-    }),
   },
 });
