@@ -21,7 +21,7 @@ export default function WelcomeScreen() {
       <View style={styles.buttonsContainer}>
         <TouchableOpacity 
           style={styles.button}
-          onPress={() => router.push('/(tabs)')}
+          onPress={() => router.push('/login')}
         >
           <Text style={styles.buttonText}>LOGIN</Text>
         </TouchableOpacity>
