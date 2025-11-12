@@ -28,7 +28,7 @@ export default function WelcomeScreen() {
 
         <TouchableOpacity 
           style={styles.button}
-          onPress={() => router.push('/(tabs)')}
+          onPress={() => router.push('/signup')}
         >
           <Text style={styles.buttonText}>SIGN UP</Text>
         </TouchableOpacity>
@@ -95,3 +95,4 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 });
+

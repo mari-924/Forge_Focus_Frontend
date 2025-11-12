@@ -1,9 +1,9 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-export default function ExploreScreen() {
+export default function ProfileScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Forge</Text>
+      <Text style={styles.title}>Profile</Text>
     </View>
   );
 }
@@ -21,3 +21,4 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
+
