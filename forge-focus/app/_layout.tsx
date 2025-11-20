@@ -1,5 +1,5 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import 'react-native-reanimated';
@@ -11,13 +11,10 @@ import { StyleSheet } from 'react-native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 
-export const unstable_settings = {
-  initialRouteName: 'index',
-};
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-
+ 
   return (
     <GestureHandlerRootView style = {styles.container}>
     <SQLiteProvider databaseName='flexzone_database.db' onInit={initDB} >
@@ -28,9 +25,7 @@ export default function RootLayout() {
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="signup" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen 
-          name="session" options={{ headerShown: false,  headerBackVisible: false,  gestureEnabled: false,  }} 
-        />
+        <Stack.Screen name="session" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style="auto" />
