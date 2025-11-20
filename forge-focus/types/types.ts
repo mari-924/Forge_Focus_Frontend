@@ -1,21 +1,22 @@
 export interface GoogleUser {
-    id: string;
-    name: string;
-    givenName?: string;
-    familyName?: string;
-    email: string;
-    photo?: string | null | undefined;
-  }
+  id: string;
+  name: string | null;
+  email: string;
+  photo?: string | null;
+  givenName?: string | null;
+  familyName?: string | null;
+}
   
 
   
-  export interface User {
-    id: number;
-    g_id: string;
-    username: string;
-    email: string;
-    profile_pic: string | null;
-  }
+
+export interface User {
+  id: number;
+  googleId: string;
+  username: string;
+  email: string;
+  profile_pic: string | null;
+}
   
   export type NewUser = Omit<User, "id">;
   export interface Profile {

@@ -1,5 +1,7 @@
 import { useSQLiteContext, type SQLiteDatabase } from "expo-sqlite";
 import { makeUsersRepo } from "../db/user";
+import { makeProfilesRepo } from "../db/profile";
+
 export type DB = SQLiteDatabase;
 
 export function useDB(): DB {
@@ -9,6 +11,7 @@ export function useRepos() {
     const db = useDB();
     return {
       db,
-      users: makeUsersRepo(db)
+      users: makeUsersRepo(db),
+      profiles: makeProfilesRepo(db),
     };
   }

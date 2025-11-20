@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useState } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -6,39 +7,48 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSession } from "@/hooks/ctx";
+import useProfile from "@/hooks/useProfile";
 import { TabHeader } from '@/components/tab-header';
+import { Image } from 'expo-image';
 
 export default function ProfileScreen() {
-  const handleLogout = () => {
-    router.replace('/');
-  };
-
+  const { signOut } = useSession();
+  const { profile } = useProfile();
   return (
     <View style={styles.container}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <TabHeader
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <TabHeader
           title="PROFILE"
           rightContent={
             <>
               <TouchableOpacity
                 accessibilityRole="button"
                 style={styles.logoutButton}
-                onPress={handleLogout}
+                onPress={signOut}
               >
                 <Text style={styles.logoutText}>LOGOUT</Text>
               </TouchableOpacity>
             </>
           }
         />
-
-        <View style={styles.avatarCard}>
+      <View style={styles.avatarCard}>
+        {profile?.user?.profile_pic ? (
+          <Image
+            source={{ uri: profile?.user?.profile_pic??null }}
+            style={styles.avatarPlaceholder}
+            contentFit="cover"
+          />
+        ) : (
           <View style={styles.avatarPlaceholder} />
-          <Text style={styles.username}>Username</Text>
-        </View>
+        )}
+        <Text style={styles.username}>{profile?.user?.username}</Text>
+        <Text style={{ color: "#E2E8CE", fontSize: 14 }}>{profile?.user?.email}</Text>
+      </View>
 
         <View style={styles.statsRow}>
           <StatBlock
@@ -268,6 +278,24 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     tintColor: '#FFFFFF',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  logo: {
+    width: 130,
+    height: 65,
+  },
+  headerActions: {
+    alignItems: 'flex-end',
+    gap: 10,
+  },
+  headerLabel: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    letterSpacing: 2,
   },
 });
 
