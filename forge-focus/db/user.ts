@@ -1,12 +1,12 @@
 import type { SQLiteDatabase } from "expo-sqlite";
 import type { User } from "@/types/types";
 
-export type NewUser = {
-  g_id?: string | null;
+export interface NewUser {
+  googleId: string;
   username: string;
   email: string;
-  profile_pic?: string | null;
-};
+  profile_pic: string | null;
+}
 
 export function makeUsersRepo(db: SQLiteDatabase) {
   return {
@@ -21,7 +21,7 @@ export function makeUsersRepo(db: SQLiteDatabase) {
     async create(newUser: NewUser): Promise<User> {
       const username = (newUser.username ?? "").trim();
       const email = (newUser.email ?? "").trim();
-      const gId = newUser.g_id ?? null;
+      const gId = newUser.googleId ?? null;
       const profilePic = newUser.profile_pic ?? null;
 
       if (!username || !email) throw new Error("username and email are required");

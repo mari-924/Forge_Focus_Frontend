@@ -14,6 +14,15 @@ export async function initDB(db: SQLiteDatabase) {
         profile_pic TEXT,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE TABLE IF NOT EXISTS profile (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        age INTEGER,
+        weight INTEGER,
+        height INTEGER,
+        skill_level TEXT,
+        FOREIGN KEY(user_id) REFERENCES user(id)
+      );
       `);
       console.log("Database Initialized Successfully");
     } catch (e) {
