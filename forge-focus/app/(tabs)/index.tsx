@@ -1,48 +1,54 @@
 import { Image } from 'expo-image';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 export default function HomeScreen() {
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <Image
-            source={require('@/assets/images/Forge-Focus-logo.png')}
-            style={styles.logo}
-            contentFit="contain"
-          />
-        </View>
-        <Text style={styles.pageTitle}>HOME PAGE</Text>
-      </View>
-
-      {/* Main Content */}
-      <View style={styles.content}>
-        {/* Friends Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>FRIENDS</Text>
-          <View style={styles.sectionBar}>
-            <Text style={styles.chevron}>›</Text>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.inner}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('@/assets/images/Forge-Focus-logo.png')}
+              style={styles.logo}
+              contentFit="contain"
+            />
           </View>
+          <Text style={styles.pageTitle}>HOME PAGE</Text>
         </View>
 
-        {/* Previous Sessions Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>PREV SESSIONS</Text>
-          <View style={styles.sectionBar}>
-            <Text style={styles.chevron}>›</Text>
+        {/* Main Content */}
+        <View style={styles.content}>
+          {/* Friends Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>FRIENDS</Text>
+            <View style={styles.sectionBar}>
+              <Text style={styles.chevron}>›</Text>
+            </View>
           </View>
-        </View>
-        
-        {/* Scheduled Sessions Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>SCHEDULED SESSIONS</Text>
-          <View style={styles.sectionBar}>
-            <Text style={styles.chevron}>›</Text>
+
+          {/* Previous Sessions Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>PREV SESSIONS</Text>
+            <View style={styles.sectionBar}>
+              <Text style={styles.chevron}>›</Text>
+            </View>
+          </View>
+          
+          {/* Scheduled Sessions Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>SCHEDULED SESSIONS</Text>
+            <View style={styles.sectionBar}>
+              <Text style={styles.chevron}>›</Text>
+            </View>
           </View>
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -50,6 +56,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#6B8E6F', 
+  },
+  scrollContent: {
+    paddingBottom: 60,
+  },
+  inner: {
+    minHeight: '100%',
   },
   header: {
     flexDirection: 'row',
