@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,14 +7,11 @@ import {
   View,
 } from 'react-native';
 import Animated, {
-  useAnimatedProps,
+  useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Circle } from 'react-native-svg';
 import { TabHeader } from '@/components/tab-header';
-
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 export default function SessionScreen() {
   const params = useLocalSearchParams<{ duration: string }>();
@@ -24,12 +21,8 @@ export default function SessionScreen() {
   const [remainingTime, setRemainingTime] = useState(durationInSeconds);
   const [isPlaying, setIsPlaying] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const startTimeRef = useRef<number | null>(null);
   const progress = useSharedValue(1);
-
-  const radius = 120;
-  const strokeWidth = 20;
-  const circumference = 2 * Math.PI * radius;
+  const circleSize = 280;
 
   // Initialize progress when component mounts or duration changes
   useEffect(() => {
@@ -39,7 +32,6 @@ export default function SessionScreen() {
 
   useEffect(() => {
     if (isPlaying && remainingTime > 0) {
-      startTimeRef.current = Date.now();
       intervalRef.current = setInterval(() => {
         setRemainingTime((prev) => {
           if (prev <= 1) {
@@ -58,7 +50,6 @@ export default function SessionScreen() {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
-      startTimeRef.current = null;
     }
 
     return () => {
@@ -85,19 +76,28 @@ export default function SessionScreen() {
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
 
-  // Memoize color calculation for better performance on Android
-  const circleColor = useMemo(() => {
+  // Calculate color based on remaining time
+  const getCircleColor = () => {
     const percentage = remainingTime / durationInSeconds;
     if (percentage > 0.66) return '#9ECAA3';
     if (percentage > 0.33) return '#6B8E6F';
     if (percentage > 0) return '#4A6B4E';
     return '#38633A';
-  }, [remainingTime, durationInSeconds]);
+  };
 
-  const animatedProps = useAnimatedProps(() => {
-    const strokeDashoffset = circumference * (1 - progress.value);
+  // Animated style for the progress ring
+  const animatedRingStyle = useAnimatedStyle(() => {
+    const scale = progress.value;
     return {
-      strokeDashoffset,
+      transform: [{ scale }],
+    };
+  });
+
+  // Animated style for the inner circle (shows progress)
+  const animatedProgressStyle = useAnimatedStyle(() => {
+    const opacity = 1 - progress.value;
+    return {
+      opacity: opacity * 0.3,
     };
   });
 
@@ -107,30 +107,31 @@ export default function SessionScreen() {
       
       <View style={styles.content}>
         <View style={styles.timerContainer}>
-          <Svg width={280} height={280} style={styles.svg}>
-            {/* Background circle */}
-            <Circle
-              cx={140}
-              cy={140}
-              r={radius}
-              stroke="#4A6B4E"
-              strokeWidth={strokeWidth}
-              fill="transparent"
-            />
-            {/* Progress circle */}
-            <AnimatedCircle
-              cx="140"
-              cy="140"
-              r={radius}
-              stroke={circleColor}
-              strokeWidth={strokeWidth}
-              fill="transparent"
-              strokeDasharray={circumference}
-              strokeLinecap="round"
-              transform="rotate(-90 140 140)"
-              animatedProps={animatedProps}
-            />
-          </Svg>
+          {/* Outer ring (background) */}
+          <View style={[styles.circleRing, styles.circleRingBackground]} />
+          
+          {/* Progress ring (animated) */}
+          <Animated.View 
+            style={[
+              styles.circleRing, 
+              { 
+                borderColor: getCircleColor(),
+                backgroundColor: getCircleColor() + '20', // Add transparency
+              },
+              animatedRingStyle
+            ]} 
+          />
+          
+          {/* Inner progress fill */}
+          <Animated.View 
+            style={[
+              styles.circleInner,
+              { backgroundColor: getCircleColor() },
+              animatedProgressStyle
+            ]} 
+          />
+          
+          {/* Timer text */}
           <View style={styles.timerTextContainer}>
             <Text style={styles.timerText}>{formatTime(remainingTime)}</Text>
           </View>
@@ -180,16 +181,36 @@ const styles = StyleSheet.create({
   timerContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    width: 280,
+    height: 280,
     position: 'relative',
   },
-  svg: {
+  circleRing: {
     position: 'absolute',
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    borderWidth: 20,
+  },
+  circleRingBackground: {
+    borderColor: '#4A6B4E',
+    backgroundColor: 'transparent',
+  },
+  circleInner: {
+    position: 'absolute',
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    top: 20,
+    left: 20,
   },
   timerTextContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     width: 280,
     height: 280,
+    position: 'absolute',
+    zIndex: 10,
   },
   timerText: {
     fontSize: 48,
