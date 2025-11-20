@@ -1,4 +1,4 @@
-import { Image } from 'expo-image';
+import { useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -6,11 +6,54 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { router } from 'expo-router';
+import { TabHeader } from '@/components/tab-header';
 
 const increments = [30, 45, 50, 60];
 const audioOptions = ['NO AUDIO', 'RAIN', 'TRAIN', 'LOFI'];
 
 export default function ExploreScreen() {
+  const [minutes, setMinutes] = useState(0);
+  const [selectedIncrement, setSelectedIncrement] = useState<number | null>(null);
+  const [selectedAudio, setSelectedAudio] = useState<string | null>(null);
+
+  // Format time as MM:00 for display only
+  const formatTime = (mins: number) => {
+    return `${String(mins).padStart(2, '0')}:00`;
+  };
+
+  // Sets the increment amount for arrows
+  const selectIncrement = (mins: number) => {
+    setSelectedIncrement(mins);
+  };
+
+  // Select audio option
+  const selectAudio = (audio: string) => {
+    setSelectedAudio(audio);
+  };
+
+  // Adjust timer with arrows
+  const adjustTimer = (delta: number) => {
+    if (selectedIncrement !== null) {
+      const incrementAmount = delta > 0 ? selectedIncrement : -selectedIncrement;
+      const newMinutes = Math.max(0, minutes + incrementAmount);
+      setMinutes(newMinutes);
+    }
+  };
+
+  // Navigate to session page with selected duration and audio
+  const handleCreateSession = () => {
+    if (minutes > 0) {
+      router.push({
+        pathname: '/session',
+        params: { 
+          duration: minutes.toString(),
+          audio: selectedAudio || 'NO AUDIO',
+        },
+      });
+    }
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -18,14 +61,7 @@ export default function ExploreScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Image
-            source={require('@/assets/images/Forge-Focus-logo.png')}
-            style={styles.logo}
-            contentFit="contain"
-          />
-          <Text style={styles.headerTitle}>FORGE SESSION</Text>
-        </View>
+        <TabHeader title="FORGE SESSION" />
 
         <Section title="Increment By:">
           <View style={styles.pillRow}>
@@ -33,7 +69,11 @@ export default function ExploreScreen() {
               <TouchableOpacity
                 key={value}
                 activeOpacity={0.8}
-                style={styles.pill}
+                style={[
+                  styles.pill,
+                  selectedIncrement === value && styles.pillSelected,
+                ]}
+                onPress={() => selectIncrement(value)}
               >
                 <Text style={styles.pillValue}>{value}</Text>
                 <Text style={styles.pillLabel}>MINUTES</Text>
@@ -44,15 +84,23 @@ export default function ExploreScreen() {
 
         <Section title="Timer:">
           <View style={styles.timerCard}>
-            <Text style={styles.timerValue}>00:00</Text>
+            <Text style={styles.timerValue}>{formatTime(minutes)}</Text>
             <View style={styles.timerButtons}>
-              <TouchableOpacity style={styles.arrowButton}>
-                <Text style={styles.arrowText}>⯅</Text>
-                <Text style={styles.arrowText}>⯅</Text>
+              <TouchableOpacity 
+                style={[styles.arrowButton, selectedIncrement === null && styles.arrowButtonDisabled]}
+                onPress={() => adjustTimer(1)}
+                disabled={selectedIncrement === null}
+              >
+                <Text style={[styles.arrowText, selectedIncrement === null && styles.arrowTextDisabled]}>⯅</Text>
+                <Text style={[styles.arrowText, selectedIncrement === null && styles.arrowTextDisabled]}>⯅</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.arrowButton}>
-                <Text style={styles.arrowText}>⯆</Text>
-                <Text style={styles.arrowText}>⯆</Text>
+              <TouchableOpacity 
+                style={[styles.arrowButton, selectedIncrement === null && styles.arrowButtonDisabled]}
+                onPress={() => adjustTimer(-1)}
+                disabled={selectedIncrement === null}
+              >
+                <Text style={[styles.arrowText, selectedIncrement === null && styles.arrowTextDisabled]}>⯆</Text>
+                <Text style={[styles.arrowText, selectedIncrement === null && styles.arrowTextDisabled]}>⯆</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -64,7 +112,11 @@ export default function ExploreScreen() {
               <TouchableOpacity
                 key={option}
                 activeOpacity={0.8}
-                style={styles.pill}
+                style={[
+                  styles.pill,
+                  selectedAudio === option && styles.pillSelected,
+                ]}
+                onPress={() => selectAudio(option)}
               >
                 <Text style={styles.pillText}>{option}</Text>
               </TouchableOpacity>
@@ -72,7 +124,11 @@ export default function ExploreScreen() {
           </View>
         </Section>
 
-        <TouchableOpacity style={styles.ctaButton}>
+        <TouchableOpacity 
+          style={[styles.ctaButton, minutes === 0 && styles.ctaButtonDisabled]}
+          onPress={handleCreateSession}
+          disabled={minutes === 0}
+        >
           <Text style={styles.ctaText}>CREATE SESSION</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -103,24 +159,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingTop: 52,
+    paddingTop: 0,
     paddingBottom: 140,
     gap: 30,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  logo: {
-    width: 120,
-    height: 60,
-  },
-  headerTitle: {
-    color: '#FFFFFF',
-    letterSpacing: 3,
-    fontSize: 16,
-    fontWeight: '600',
   },
   section: {
     gap: 14,
@@ -144,27 +185,36 @@ const styles = StyleSheet.create({
   pill: {
     flex: 1,
     minWidth: 70,
-    backgroundColor: '#9ECAA3',
-    borderRadius: 999,
+    backgroundColor: '#38633A',
+    borderRadius: 15,
     paddingVertical: 12,
     paddingHorizontal: 8,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
+  },
+  pillSelected: {
+    backgroundColor: '#5A7A5D',
+    borderWidth: 2,
+    borderColor: '#5A7A5D',
   },
   pillValue: {
     fontSize: 16,
     fontWeight: '800',
     color: '#FFFFFF',
+    textAlign: 'center',
   },
   pillLabel: {
     fontSize: 11,
     letterSpacing: 1,
     color: '#FFFFFF',
+    textAlign: 'center',
   },
   pillText: {
     color: '#FFFFFF',
     fontWeight: '700',
     letterSpacing: 1,
+    textAlign: 'center',
   },
   timerCard: {
     flexDirection: 'row',
@@ -187,34 +237,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 4,
   },
+  arrowButtonDisabled: {
+    opacity: 0.4,
+  },
   arrowText: {
     color: '#FFFFFF',
     fontSize: 22,
     lineHeight: 22,
   },
+  arrowTextDisabled: {
+    opacity: 0.5,
+  },
   ctaButton: {
     alignSelf: 'center',
-    backgroundColor: '#9ECAA3',
+    backgroundColor: '#38633A',
     borderRadius: 30,
     paddingVertical: 16,
     paddingHorizontal: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaButtonDisabled: {
+    opacity: 0.5,
   },
   ctaText: {
     color: '#FFFFFF',
     fontWeight: '800',
     letterSpacing: 2,
-  },
-  bottomNav: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-    borderRadius: 40,
-    backgroundColor: '#4A6B4E',
-    paddingVertical: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
+    textAlign: 'center',
   },
   navIcon: {
     width: 34,
