@@ -1,6 +1,6 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import React from 'react';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SQLiteProvider } from 'expo-sqlite';
@@ -8,6 +8,7 @@ import { initDB } from '@/db/innit';
 import { SessionProvider } from '@/hooks/ctx';
 import { StyleSheet } from 'react-native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Stack } from 'expo-router';
 
 
 

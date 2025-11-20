@@ -1,12 +1,16 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { CountdownCircleTimer } from 'react-countdown-circle-timer';
+import { useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { TabHeader } from '@/components/tab-header';
 
 export default function SessionScreen() {
@@ -14,20 +18,88 @@ export default function SessionScreen() {
   const duration = parseInt(params.duration || '0', 10); // Duration in minutes
   const durationInSeconds = duration * 60;
 
+  const [remainingTime, setRemainingTime] = useState(durationInSeconds);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [key, setKey] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const progress = useSharedValue(1);
+  const circleSize = 280;
 
-  const handleComplete = () => {
-    // Timer completed
+  // Initialize progress when component mounts or duration changes
+  useEffect(() => {
+    progress.value = 1;
+    setRemainingTime(durationInSeconds);
+  }, [durationInSeconds]);
+
+  useEffect(() => {
+    if (isPlaying && remainingTime > 0) {
+      intervalRef.current = setInterval(() => {
+        setRemainingTime((prev) => {
+          if (prev <= 1) {
+            setIsPlaying(false);
+            progress.value = withTiming(0, { duration: 300 });
+            return 0;
+          }
+          const newTime = prev - 1;
+          const newProgress = newTime / durationInSeconds;
+          progress.value = withTiming(newProgress, { duration: 1000 });
+          return newTime;
+        });
+      }, 1000);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [isPlaying, durationInSeconds, progress]);
+
+  const handleReset = () => {
+    setRemainingTime(durationInSeconds);
     setIsPlaying(false);
-    return { shouldRepeat: false };
+    progress.value = withTiming(1, { duration: 300 });
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
   };
 
-  const formatTime = (remainingTime: number) => {
-    const minutes = Math.floor(remainingTime / 60);
-    const seconds = remainingTime % 60;
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60);
+    const seconds = time % 60;
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
+
+  // Calculate color based on remaining time
+  const getCircleColor = () => {
+    const percentage = remainingTime / durationInSeconds;
+    if (percentage > 0.66) return '#9ECAA3';
+    if (percentage > 0.33) return '#6B8E6F';
+    if (percentage > 0) return '#4A6B4E';
+    return '#38633A';
+  };
+
+  // Animated style for the progress ring
+  const animatedRingStyle = useAnimatedStyle(() => {
+    const scale = progress.value;
+    return {
+      transform: [{ scale }],
+    };
+  });
+
+  // Animated style for the inner circle (shows progress)
+  const animatedProgressStyle = useAnimatedStyle(() => {
+    const opacity = 1 - progress.value;
+    return {
+      opacity: opacity * 0.3,
+    };
+  });
 
   return (
     <View style={styles.container}>
@@ -35,22 +107,34 @@ export default function SessionScreen() {
       
       <View style={styles.content}>
         <View style={styles.timerContainer}>
-          <CountdownCircleTimer
-            key={key}
-            isPlaying={isPlaying}
-            duration={durationInSeconds}
-            colors={['#9ECAA3', '#6B8E6F', '#4A6B4E', '#38633A']}
-            colorsTime={[durationInSeconds, durationInSeconds * 0.66, durationInSeconds * 0.33, 0]}
-            size={280}
-            strokeWidth={20}
-            onComplete={handleComplete}
-          >
-            {({ remainingTime }) => (
-              <View style={styles.timerTextContainer}>
-                <Text style={styles.timerText}>{formatTime(remainingTime)}</Text>
-              </View>
-            )}
-          </CountdownCircleTimer>
+          {/* Outer ring (background) */}
+          <View style={[styles.circleRing, styles.circleRingBackground]} />
+          
+          {/* Progress ring (animated) */}
+          <Animated.View 
+            style={[
+              styles.circleRing, 
+              { 
+                borderColor: getCircleColor(),
+                backgroundColor: getCircleColor() + '20', // Add transparency
+              },
+              animatedRingStyle
+            ]} 
+          />
+          
+          {/* Inner progress fill */}
+          <Animated.View 
+            style={[
+              styles.circleInner,
+              { backgroundColor: getCircleColor() },
+              animatedProgressStyle
+            ]} 
+          />
+          
+          {/* Timer text */}
+          <View style={styles.timerTextContainer}>
+            <Text style={styles.timerText}>{formatTime(remainingTime)}</Text>
+          </View>
         </View>
 
         <View style={styles.controls}>
@@ -65,10 +149,7 @@ export default function SessionScreen() {
 
           <TouchableOpacity
             style={styles.controlButton}
-            onPress={() => {
-              setKey((prev) => prev + 1);
-              setIsPlaying(false);
-            }}
+            onPress={handleReset}
           >
             <Text style={styles.controlButtonText}>RESET</Text>
           </TouchableOpacity>
@@ -100,10 +181,36 @@ const styles = StyleSheet.create({
   timerContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    width: 280,
+    height: 280,
+    position: 'relative',
+  },
+  circleRing: {
+    position: 'absolute',
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    borderWidth: 20,
+  },
+  circleRingBackground: {
+    borderColor: '#4A6B4E',
+    backgroundColor: 'transparent',
+  },
+  circleInner: {
+    position: 'absolute',
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    top: 20,
+    left: 20,
   },
   timerTextContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    width: 280,
+    height: 280,
+    position: 'absolute',
+    zIndex: 10,
   },
   timerText: {
     fontSize: 48,
