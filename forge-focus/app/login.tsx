@@ -1,12 +1,15 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSession } from "@/hooks/ctx";
 
 export default function LoginScreen() {
-  const handleGoogleLogin = () => {
+  const { signIn } = useSession();
+  const handleGoogleLogin = async () => {
     // TODO: Implement Google authentication
     console.log('Google login pressed');
-    router.push('/(tabs)');
+    await signIn();
+    router.replace('/(tabs)');
   };
 
   const handleGitHubLogin = () => {
