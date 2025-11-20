@@ -76,21 +76,6 @@ export default function ProfileScreen() {
           </View>
         </View>
       </ScrollView>
-
-      <View style={styles.bottomNav}>
-        <Image
-          source={require('@/assets/images/anvil.png')}
-          style={styles.navIcon}
-        />
-        <Image
-          source={require('@/assets/images/home-5-xxl.png')}
-          style={styles.navIcon}
-        />
-        <Image
-          source={require('@/assets/images/user-xxl.png')}
-          style={styles.navIcon}
-        />
-      </View>
     </View>
   );
 }
