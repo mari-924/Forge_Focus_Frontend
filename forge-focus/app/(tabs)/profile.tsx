@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import {
   ScrollView,
@@ -7,6 +6,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { TabHeader } from '@/components/tab-header';
 
 export default function ProfileScreen() {
   const handleLogout = () => {
@@ -20,24 +20,20 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Image
-            source={require('@/assets/images/Forge-Focus-logo.png')}
-            style={styles.logo}
-            contentFit="contain"
-          />
-
-          <View style={styles.headerActions}>
-            <Text style={styles.headerLabel}>PROFILE</Text>
-            <TouchableOpacity
-              accessibilityRole="button"
-              style={styles.logoutButton}
-              onPress={handleLogout}
-            >
-              <Text style={styles.logoutText}>LOGOUT</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <TabHeader
+          title="PROFILE"
+          rightContent={
+            <>
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={styles.logoutButton}
+                onPress={handleLogout}
+              >
+                <Text style={styles.logoutText}>LOGOUT</Text>
+              </TouchableOpacity>
+            </>
+          }
+        />
 
         <View style={styles.avatarCard}>
           <View style={styles.avatarPlaceholder} />
@@ -109,27 +105,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 25,
-    paddingTop: 50,
+    paddingTop: 0,
     paddingBottom: 120,
     gap: 30,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  logo: {
-    width: 130,
-    height: 65,
-  },
-  headerActions: {
-    alignItems: 'flex-end',
-    gap: 10,
-  },
-  headerLabel: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    letterSpacing: 2,
   },
   logoutButton: {
     backgroundColor: '#8FA892',

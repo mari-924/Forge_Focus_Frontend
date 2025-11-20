@@ -1,5 +1,5 @@
-import { Image } from 'expo-image';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { TabHeader } from '@/components/tab-header';
 
 export default function HomeScreen() {
   return (
@@ -9,17 +9,7 @@ export default function HomeScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.inner}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Image
-              source={require('@/assets/images/Forge-Focus-logo.png')}
-              style={styles.logo}
-              contentFit="contain"
-            />
-          </View>
-          <Text style={styles.pageTitle}>HOME PAGE</Text>
-        </View>
+        <TabHeader title="HOME PAGE" />
 
         {/* Main Content */}
         <View style={styles.content}>
@@ -58,41 +48,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#6B8E6F', 
   },
   scrollContent: {
-    paddingBottom: 60,
-  },
-  inner: {
-    minHeight: '100%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingTop: 50,
-    paddingHorizontal: 20,
     paddingBottom: 40,
   },
-  logoContainer: {
-    alignItems: 'flex-start',
-  },
-  logo: {
-    width: 150,
-    height: 75,
-  },
-  pageTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF', 
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginTop: 2,
+  inner: {
+    paddingBottom: 20,
+    paddingHorizontal: 20,
   },
   content: {
-    flex: 1,
-    paddingHorizontal: 20,
-    gap: 90,
+    gap: 30,
   },
   section: {
-    gap: 20,
+    gap: 12,
   },
   sectionTitle: {
     fontSize: 15,
@@ -100,21 +66,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF', 
     textTransform: 'uppercase',
     letterSpacing: 1.5,
-    marginBottom: 10,
-    paddingTop: 10,
-    paddingBottom: 5
+    marginBottom: 8,
+    paddingTop: 8,
+    paddingBottom: 4
   },
   sectionBar: {
     width: '100%',
-    height: '100%',
     backgroundColor: '#4A6B4E', 
     borderRadius: 10,
-    paddingVertical: 18,
+    paddingVertical: 16,
     paddingHorizontal: 20,
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
     minHeight: 60,
+    maxHeight: 80,
   },
   chevron: {
     fontSize: 36,
