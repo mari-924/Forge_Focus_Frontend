@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -24,22 +24,32 @@ export default function SessionScreen() {
   const [remainingTime, setRemainingTime] = useState(durationInSeconds);
   const [isPlaying, setIsPlaying] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startTimeRef = useRef<number | null>(null);
   const progress = useSharedValue(1);
 
   const radius = 120;
   const strokeWidth = 20;
   const circumference = 2 * Math.PI * radius;
 
+  // Initialize progress when component mounts or duration changes
+  useEffect(() => {
+    progress.value = 1;
+    setRemainingTime(durationInSeconds);
+  }, [durationInSeconds]);
+
   useEffect(() => {
     if (isPlaying && remainingTime > 0) {
+      startTimeRef.current = Date.now();
       intervalRef.current = setInterval(() => {
         setRemainingTime((prev) => {
           if (prev <= 1) {
             setIsPlaying(false);
+            progress.value = withTiming(0, { duration: 300 });
             return 0;
           }
           const newTime = prev - 1;
-          progress.value = withTiming(newTime / durationInSeconds, { duration: 1000 });
+          const newProgress = newTime / durationInSeconds;
+          progress.value = withTiming(newProgress, { duration: 1000 });
           return newTime;
         });
       }, 1000);
@@ -48,14 +58,16 @@ export default function SessionScreen() {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      startTimeRef.current = null;
     }
 
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
-  }, [isPlaying, remainingTime, durationInSeconds, progress]);
+  }, [isPlaying, durationInSeconds, progress]);
 
   const handleReset = () => {
     setRemainingTime(durationInSeconds);
@@ -73,13 +85,14 @@ export default function SessionScreen() {
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
 
-  const getColor = () => {
+  // Memoize color calculation for better performance on Android
+  const circleColor = useMemo(() => {
     const percentage = remainingTime / durationInSeconds;
     if (percentage > 0.66) return '#9ECAA3';
     if (percentage > 0.33) return '#6B8E6F';
     if (percentage > 0) return '#4A6B4E';
     return '#38633A';
-  };
+  }, [remainingTime, durationInSeconds]);
 
   const animatedProps = useAnimatedProps(() => {
     const strokeDashoffset = circumference * (1 - progress.value);
@@ -109,7 +122,7 @@ export default function SessionScreen() {
               cx="140"
               cy="140"
               r={radius}
-              stroke={getColor()}
+              stroke={circleColor}
               strokeWidth={strokeWidth}
               fill="transparent"
               strokeDasharray={circumference}
