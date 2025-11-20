@@ -21,7 +21,6 @@ jest.mock('expo-image', () => ({
 
 // Mock expo-router router to avoid navigation side effects
 const mockPush = jest.fn();
-const mockBack = jest.fn();
 
 jest.mock('expo-router', () => {
   const mockRouter = {
@@ -36,88 +35,97 @@ jest.mock('expo-router', () => {
   };
 });
 
-import LoginScreen from '@/app/login';
+import SignupScreen from '@/app/signup';
 import { router } from 'expo-router';
 
-describe('LoginScreen', () => {
+describe('SignupScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (router.push as jest.Mock).mockImplementation(mockPush);
-    (router.back as jest.Mock).mockImplementation(mockBack);
   });
 
-  it('renders the login label', () => {
-    render(<LoginScreen />);
-    const loginTexts = screen.getAllByText('LOGIN');
-    expect(loginTexts.length).toBeGreaterThan(0);
+  it('renders the signup label', () => {
+    render(<SignupScreen />);
+    const signupTexts = screen.getAllByText('SIGN UP');
+    expect(signupTexts.length).toBeGreaterThan(0);
   });
 
-  it('renders email and password input fields', () => {
-    render(<LoginScreen />);
+  it('renders email, password, and retype password input fields', () => {
+    render(<SignupScreen />);
     
-    expect(screen.getByPlaceholderText('ENTER EMAIL...')).toBeTruthy();
-    expect(screen.getByPlaceholderText('ENTER PASSWORD...')).toBeTruthy();
+    expect(screen.getByPlaceholderText('ENTER EMAIL')).toBeTruthy();
+    expect(screen.getByPlaceholderText('ENTER PASSWORD')).toBeTruthy();
+    expect(screen.getByPlaceholderText('RETYPE PASSWORD')).toBeTruthy();
   });
 
   it('renders the OR divider', () => {
-    render(<LoginScreen />);
+    render(<SignupScreen />);
     expect(screen.getByText('OR')).toBeTruthy();
   });
 
-  it('renders the login button', () => {
-    render(<LoginScreen />);
-    const loginTexts = screen.getAllByText('LOGIN');
-    expect(loginTexts.length).toBeGreaterThan(0);
+  it('renders the signup button', () => {
+    render(<SignupScreen />);
+    const signupButtons = screen.getAllByText('SIGN UP');
+    expect(signupButtons.length).toBeGreaterThan(0);
   });
 
   it('renders the back button', () => {
-    render(<LoginScreen />);
+    render(<SignupScreen />);
     const backButtons = screen.getAllByText('BACK');
     expect(backButtons.length).toBeGreaterThan(0);
   });
 
-  it('navigates to tabs when login button is pressed', () => {
-    render(<LoginScreen />);
-    const loginButtons = screen.getAllByText('LOGIN');
-    // There should be two LOGIN texts: one label and one button
+  it('navigates to tabs when signup button is pressed', () => {
+    render(<SignupScreen />);
+    const signupButtons = screen.getAllByText('SIGN UP');
+    // There should be two SIGN UP texts: one label and one button
     // The button is the last one in the component tree
-    const loginButton = loginButtons[loginButtons.length - 1];
-    fireEvent.press(loginButton);
+    const signupButton = signupButtons[signupButtons.length - 1];
+    fireEvent.press(signupButton);
     expect(mockPush).toHaveBeenCalledWith('/(tabs)');
   });
 
   it('navigates to welcome screen when back button is pressed', () => {
-    render(<LoginScreen />);
+    render(<SignupScreen />);
     const backButton = screen.getAllByText('BACK')[0];
     fireEvent.press(backButton);
     expect(mockPush).toHaveBeenCalledWith('/');
   });
 
   it('renders social login icons container', () => {
-    render(<LoginScreen />);
+    render(<SignupScreen />);
     // Check that the social icons are rendered (they use Image components)
     const images = screen.UNSAFE_getAllByType(require('react-native').View);
     expect(images.length).toBeGreaterThan(0);
   });
 
   it('allows typing in email input field', () => {
-    render(<LoginScreen />);
-    const emailInput = screen.getByPlaceholderText('ENTER EMAIL...');
+    render(<SignupScreen />);
+    const emailInput = screen.getByPlaceholderText('ENTER EMAIL');
     fireEvent.changeText(emailInput, 'test@example.com');
     expect(emailInput).toBeTruthy();
   });
 
   it('allows typing in password input field', () => {
-    render(<LoginScreen />);
-    const passwordInput = screen.getByPlaceholderText('ENTER PASSWORD...');
+    render(<SignupScreen />);
+    const passwordInput = screen.getByPlaceholderText('ENTER PASSWORD');
     fireEvent.changeText(passwordInput, 'password123');
     expect(passwordInput).toBeTruthy();
   });
 
-  it('password input has secureTextEntry enabled', () => {
-    render(<LoginScreen />);
-    const passwordInput = screen.getByPlaceholderText('ENTER PASSWORD...');
+  it('allows typing in retype password input field', () => {
+    render(<SignupScreen />);
+    const retypePasswordInput = screen.getByPlaceholderText('RETYPE PASSWORD');
+    fireEvent.changeText(retypePasswordInput, 'password123');
+    expect(retypePasswordInput).toBeTruthy();
+  });
+
+  it('password inputs have secureTextEntry enabled', () => {
+    render(<SignupScreen />);
+    const passwordInput = screen.getByPlaceholderText('ENTER PASSWORD');
+    const retypePasswordInput = screen.getByPlaceholderText('RETYPE PASSWORD');
     expect(passwordInput.props.secureTextEntry).toBe(true);
+    expect(retypePasswordInput.props.secureTextEntry).toBe(true);
   });
 });
 
