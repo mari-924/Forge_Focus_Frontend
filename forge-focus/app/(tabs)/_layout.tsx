@@ -1,14 +1,18 @@
 import { Image } from 'expo-image';
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
 
 import { HapticTab } from '@/components/haptic-tab';
+import { useSession } from '@/hooks/ctx';
+
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-
+  const { session, isLoading } = useSession();
+  if (isLoading) return null;
+  if (!session) return <Redirect href="/login" />;
   return (
     <Tabs
       screenOptions={{

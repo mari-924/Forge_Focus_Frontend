@@ -1,12 +1,15 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSession } from "@/hooks/ctx";
+
+
 
 export default function SignupScreen() {
-  const handleGoogleLogin = () => {
-    // TODO: Implement Google authentication
-    console.log('Google login pressed');
-    router.push('/(tabs)');
+  const { signIn } = useSession();
+  const handleGoogleSignUp = async () => {
+    await signIn();
+    router.replace("/(tabs)");
   };
 
   const handleGitHubLogin = () => {
@@ -65,7 +68,7 @@ export default function SignupScreen() {
       <View style={styles.socialContainer}>
         <TouchableOpacity 
           style={styles.socialIcon}
-          onPress={handleGoogleLogin}
+          onPress={handleGoogleSignUp}
           activeOpacity={0.7}
         >
           <Image
