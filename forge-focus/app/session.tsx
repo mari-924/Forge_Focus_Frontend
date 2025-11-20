@@ -1,33 +1,92 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { CountdownCircleTimer } from 'react-countdown-circle-timer';
+import { useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import Animated, {
+  useAnimatedProps,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import Svg, { Circle } from 'react-native-svg';
 import { TabHeader } from '@/components/tab-header';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 export default function SessionScreen() {
   const params = useLocalSearchParams<{ duration: string }>();
   const duration = parseInt(params.duration || '0', 10); // Duration in minutes
   const durationInSeconds = duration * 60;
 
+  const [remainingTime, setRemainingTime] = useState(durationInSeconds);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [key, setKey] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const progress = useSharedValue(1);
 
-  const handleComplete = () => {
-    // Timer completed
+  const radius = 120;
+  const strokeWidth = 20;
+  const circumference = 2 * Math.PI * radius;
+
+  useEffect(() => {
+    if (isPlaying && remainingTime > 0) {
+      intervalRef.current = setInterval(() => {
+        setRemainingTime((prev) => {
+          if (prev <= 1) {
+            setIsPlaying(false);
+            return 0;
+          }
+          const newTime = prev - 1;
+          progress.value = withTiming(newTime / durationInSeconds, { duration: 1000 });
+          return newTime;
+        });
+      }, 1000);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [isPlaying, remainingTime, durationInSeconds, progress]);
+
+  const handleReset = () => {
+    setRemainingTime(durationInSeconds);
     setIsPlaying(false);
-    return { shouldRepeat: false };
+    progress.value = withTiming(1, { duration: 300 });
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
   };
 
-  const formatTime = (remainingTime: number) => {
-    const minutes = Math.floor(remainingTime / 60);
-    const seconds = remainingTime % 60;
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60);
+    const seconds = time % 60;
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
+
+  const getColor = () => {
+    const percentage = remainingTime / durationInSeconds;
+    if (percentage > 0.66) return '#9ECAA3';
+    if (percentage > 0.33) return '#6B8E6F';
+    if (percentage > 0) return '#4A6B4E';
+    return '#38633A';
+  };
+
+  const animatedProps = useAnimatedProps(() => {
+    const strokeDashoffset = circumference * (1 - progress.value);
+    return {
+      strokeDashoffset,
+    };
+  });
 
   return (
     <View style={styles.container}>
@@ -35,22 +94,33 @@ export default function SessionScreen() {
       
       <View style={styles.content}>
         <View style={styles.timerContainer}>
-          <CountdownCircleTimer
-            key={key}
-            isPlaying={isPlaying}
-            duration={durationInSeconds}
-            colors={['#9ECAA3', '#6B8E6F', '#4A6B4E', '#38633A']}
-            colorsTime={[durationInSeconds, durationInSeconds * 0.66, durationInSeconds * 0.33, 0]}
-            size={280}
-            strokeWidth={20}
-            onComplete={handleComplete}
-          >
-            {({ remainingTime }) => (
-              <View style={styles.timerTextContainer}>
-                <Text style={styles.timerText}>{formatTime(remainingTime)}</Text>
-              </View>
-            )}
-          </CountdownCircleTimer>
+          <Svg width={280} height={280} style={styles.svg}>
+            {/* Background circle */}
+            <Circle
+              cx={140}
+              cy={140}
+              r={radius}
+              stroke="#4A6B4E"
+              strokeWidth={strokeWidth}
+              fill="transparent"
+            />
+            {/* Progress circle */}
+            <AnimatedCircle
+              cx="140"
+              cy="140"
+              r={radius}
+              stroke={getColor()}
+              strokeWidth={strokeWidth}
+              fill="transparent"
+              strokeDasharray={circumference}
+              strokeLinecap="round"
+              transform="rotate(-90 140 140)"
+              animatedProps={animatedProps}
+            />
+          </Svg>
+          <View style={styles.timerTextContainer}>
+            <Text style={styles.timerText}>{formatTime(remainingTime)}</Text>
+          </View>
         </View>
 
         <View style={styles.controls}>
@@ -65,10 +135,7 @@ export default function SessionScreen() {
 
           <TouchableOpacity
             style={styles.controlButton}
-            onPress={() => {
-              setKey((prev) => prev + 1);
-              setIsPlaying(false);
-            }}
+            onPress={handleReset}
           >
             <Text style={styles.controlButtonText}>RESET</Text>
           </TouchableOpacity>
@@ -100,10 +167,16 @@ const styles = StyleSheet.create({
   timerContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  svg: {
+    position: 'absolute',
   },
   timerTextContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    width: 280,
+    height: 280,
   },
   timerText: {
     fontSize: 48,
