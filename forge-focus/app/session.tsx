@@ -12,9 +12,11 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { TabHeader } from '@/components/tab-header';
+import * as SecureStore from 'expo-secure-store';
 
 export default function SessionScreen() {
-  const params = useLocalSearchParams<{ duration: string }>();
+  const params = useLocalSearchParams<{ duration: string; sessionId?: string }>();
+const sessionId = params.sessionId;
   const duration = parseInt(params.duration || '0', 10); // Duration in minutes
   const durationInSeconds = duration * 60;
 
@@ -69,7 +71,26 @@ export default function SessionScreen() {
       intervalRef.current = null;
     }
   };
-
+  const completeSession = async () => {
+    if (!sessionId) return;
+    const jwt = await SecureStore.getItemAsync("jwt");
+  
+    try {
+      await fetch(`${process.env?.EXPO_PUBLIC_API_URL}/sessions/${sessionId}/complete`, {
+        method: "PATCH",
+        headers: {
+          Authorization: jwt ? `Bearer ${jwt}` : "",
+        },
+      });
+    } catch (e) {
+      console.log("Failed to mark session complete", e);
+    }
+  };
+  
+  const handleEndSession = async () => {
+    await completeSession();
+    router.back();
+  };
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60);
     const seconds = time % 60;
@@ -156,7 +177,7 @@ export default function SessionScreen() {
 
           <TouchableOpacity
             style={styles.controlButton}
-            onPress={() => router.back()}
+            onPress={handleEndSession}
           >
             <Text style={styles.controlButtonText}>END SESSION</Text>
           </TouchableOpacity>

@@ -9,7 +9,6 @@ export async function initDB(db: SQLiteDatabase) {
       CREATE TABLE IF NOT EXISTS user (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         g_id TEXT UNIQUE,
-        gh_id TEXT UNIQUE,
         username TEXT,
         email TEXT UNIQUE,
         profile_pic TEXT,

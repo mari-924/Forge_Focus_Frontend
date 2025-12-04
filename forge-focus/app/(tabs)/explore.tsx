@@ -8,15 +8,59 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { TabHeader } from '@/components/tab-header';
+import { useSession } from '@/hooks/ctx';
+import * as SecureStore from 'expo-secure-store';
+
 
 const increments = [30, 45, 50, 60];
 const audioOptions = ['NO AUDIO', 'RAIN', 'TRAIN', 'LOFI'];
 
 export default function ExploreScreen() {
+  const { session: email } = useSession();
+
   const [minutes, setMinutes] = useState(0);
   const [selectedIncrement, setSelectedIncrement] = useState<number | null>(null);
   const [selectedAudio, setSelectedAudio] = useState<string | null>(null);
 
+  const resetForm = () => {
+    setMinutes(0);
+    setSelectedIncrement(null);
+    setSelectedAudio(null);
+  };
+
+  const createSessionOnServer = async (options: { scheduled: boolean }) => {
+    if (!email) return;
+
+    const jwt = await SecureStore.getItemAsync("jwt");
+
+    const body = {
+      title: options.scheduled ? "Scheduled Focus Session" : "Focus Session",
+      durationMinutes: minutes,
+      audioFile: selectedAudio || 'NO AUDIO',
+      isPrev: false,
+      notes: null,
+    };
+
+    const res = await fetch(
+      `${process.env?.EXPO_PUBLIC_API_URL}/sessions?hostEmail=${encodeURIComponent(email)}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: jwt ? `Bearer ${jwt}` : "",
+        },
+        body: JSON.stringify(body),
+      }
+    );
+
+    if (!res.ok) {
+      console.log("Failed to create session", await res.text());
+      return null;
+    }
+
+    const created = await res.json();
+    return created;
+  };
   // Format time as MM:00 for display only
   const formatTime = (mins: number) => {
     return `${String(mins).padStart(2, '0')}:00`;
@@ -42,16 +86,33 @@ export default function ExploreScreen() {
   };
 
   // Navigate to session page with selected duration and audio
-  const handleCreateSession = () => {
-    if (minutes > 0) {
-      router.push({
-        pathname: '/session',
-        params: { 
-          duration: minutes.toString(),
-          audio: selectedAudio || 'NO AUDIO',
-        },
-      });
-    }
+  const handleScheduleSession = async () => {
+    if (minutes === 0) return;
+
+    const sessionFromServer = await createSessionOnServer({ scheduled: true });
+    if (!sessionFromServer) return;
+
+    // ✅ clear UI state
+    resetForm();
+
+    // ✅ go back to tabs (Home tab will refetch via useFocusEffect)
+    router.push('/(tabs)'); // or '/(tabs)/index' if that's your home route
+  };
+
+  const handleCreateSession = async () => {
+    if (minutes === 0) return;
+
+    const sessionFromServer = await createSessionOnServer({ scheduled: false });
+    if (!sessionFromServer) return;
+
+    router.push({
+      pathname: '/session',
+      params: { 
+        duration: minutes.toString(),
+        audio: selectedAudio || 'NO AUDIO',
+        sessionId: sessionFromServer.id?.toString() ?? '',
+      },
+    });
   };
 
   return (
@@ -130,6 +191,13 @@ export default function ExploreScreen() {
           disabled={minutes === 0}
         >
           <Text style={styles.ctaText}>CREATE SESSION</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.ctaButton, minutes === 0 && styles.ctaButtonDisabled]}
+          onPress={handleScheduleSession}
+          disabled={minutes === 0}
+        >
+          <Text style={styles.ctaText}>SCHEDULE SESSION</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
