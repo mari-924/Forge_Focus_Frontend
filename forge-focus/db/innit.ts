@@ -23,21 +23,9 @@ export async function initDB(db: SQLiteDatabase) {
         skill_level TEXT,
         FOREIGN KEY(user_id) REFERENCES user(id)
       );
-    `);
-
-    // Migration for existing installs (gh_id)
-    await db.execAsync(`
-      PRAGMA foreign_keys=off;
-      BEGIN TRANSACTION;
-      ALTER TABLE user ADD COLUMN gh_id TEXT UNIQUE;
-      COMMIT;
-      PRAGMA foreign_keys=on;
-    `).catch(() => {
-      // will fail if column already exists; that's fine
-    });
-
-    console.log("Database Initialized Successfully");
-  } catch (e) {
-    console.error("Database Error: ", e);
-  }
+      `);
+      console.log("Database Initialized Successfully");
+    } catch (e) {
+      console.error("Database Error: ", e);
+    }
 }
