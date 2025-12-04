@@ -4,7 +4,7 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-nativ
 import { useSession } from "@/hooks/ctx";
 
 export default function LoginScreen() {
-  const { signIn } = useSession();
+  const { signIn, signInWithGitHub } = useSession();
   const handleGoogleLogin = async () => {
     // TODO: Implement Google authentication
     console.log('Google login pressed');
@@ -12,9 +12,10 @@ export default function LoginScreen() {
     router.replace('/(tabs)');
   };
 
-  const handleGitHubLogin = () => {
+  const handleGitHubLogin = async () => {
     // TODO: Implement GitHub authentication
     console.log('GitHub login pressed');
+    await signInWithGitHub();
     router.push('/(tabs)');
   };
 
