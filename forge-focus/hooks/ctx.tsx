@@ -18,10 +18,9 @@
   import { verifyGoogleToken, verifyGithubToken } from "@/api/api";
   import type { User, NewUser, GoogleUser } from "@/types/types";
   import * as Linking from "expo-linking";
-
   import * as AuthSession from "expo-auth-session";
   import * as WebBrowser from "expo-web-browser";
-
+  import { signInOrCreateUser } from "@/api/api";
 
   WebBrowser.maybeCompleteAuthSession();
 
@@ -124,8 +123,8 @@
             dbUser = await users.create(mapGoogleToUser(googleUser));
           });
         }
-
-        setUser(dbUser);
+        const backendUser = await signInOrCreateUser();
+        setUser(backendUser);
         setSession(googleUser.email);
         return dbUser;
       } finally {
