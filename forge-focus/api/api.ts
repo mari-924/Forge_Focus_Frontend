@@ -17,6 +17,7 @@ export const verifyGoogleToken = async (googleIdToken: string) => {
   const { data } = await axios.post(`${API_BASE_URL}/api/auth/google`, {
     token: googleIdToken,
   });
+  console.log(data)
 
   return data;
 };

@@ -1,9 +1,15 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+} from 'react-native';
 import { TabHeader } from '@/components/tab-header';
 import { useEffect, useState, useCallback } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { useSession } from '@/hooks/ctx';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, router } from 'expo-router';
 
 type FocusSession = {
   id: number;
@@ -19,7 +25,6 @@ type UserSessionsResponse = {
   scheduled: FocusSession[];
 };
 
-
 export default function HomeScreen() {
   const { session: email } = useSession();
   const [previousSessions, setPreviousSessions] = useState<FocusSession[]>([]);
@@ -28,19 +33,21 @@ export default function HomeScreen() {
   const loadSessions = useCallback(async () => {
     if (!email) return;
 
-    const jwt = await SecureStore.getItemAsync("jwt");
+    const jwt = await SecureStore.getItemAsync('jwt');
 
     try {
       const res = await fetch(
-        `${process.env?.EXPO_PUBLIC_API_URL}/sessions/user/${encodeURIComponent(email)}`,
+        `${process.env?.EXPO_PUBLIC_API_URL}/sessions/user/${encodeURIComponent(
+          email
+        )}`,
         {
           headers: {
-            Authorization: jwt ? `Bearer ${jwt}` : "",
+            Authorization: jwt ? `Bearer ${jwt}` : '',
           },
         }
       );
       if (!res.ok) {
-        console.log("Failed to load sessions", await res.text());
+        console.log('Failed to load sessions', await res.text());
         return;
       }
 
@@ -48,16 +55,24 @@ export default function HomeScreen() {
       setPreviousSessions(data.previous || []);
       setScheduledSessions(data.scheduled || []);
     } catch (e) {
-      console.log("Error loading sessions", e);
+      console.log('Error loading sessions', e);
     }
   }, [email]);
 
-  // Run whenever the screen is focused
   useFocusEffect(
     useCallback(() => {
       loadSessions();
     }, [loadSessions])
   );
+
+  // Helper: go to session screen with timer set
+  const startSessionWithDuration = (durationMinutes: number) => {
+    router.push({
+      pathname: '/session', // adjust if your route is different
+      params: { duration: String(durationMinutes) },
+    });
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -68,55 +83,97 @@ export default function HomeScreen() {
         <TabHeader title="HOME PAGE" />
 
         <View style={styles.content}>
-
-          {/* Friends Section (unchanged for now) */}
+          {/* Friends Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>FRIENDS</Text>
-            <View style={styles.sectionBar}>
+            <TouchableOpacity
+              style={styles.sectionBar}
+              onPress={() => {
+                // TODO: navigate to friends screen
+                console.log('Friends pressed');
+              }}
+            >
+              <Text style={styles.sectionBarText}>View Friends</Text>
               <Text style={styles.chevron}>›</Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
           {/* Previous Sessions */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>PREV SESSIONS</Text>
-            <View style={styles.sectionBarList}>
-              {previousSessions.length === 0 ? (
-                <Text style={styles.emptyText}>No sessions yet.</Text>
-              ) : (
-                previousSessions.map((s) => (
-                  <View key={s.id} style={styles.sessionRow}>
-                    <Text style={styles.sessionTitle}>
-                      {s.title || `Session #${s.id}`}
+
+            {previousSessions.length === 0 ? (
+              <Text style={styles.emptyText}>No sessions yet.</Text>
+            ) : (
+              <View style={styles.cardList}>
+                {previousSessions.map((s) => (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={styles.card}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      // Start a new session using this session's duration
+                      startSessionWithDuration(s.durationMinutes);
+                    }}
+                  >
+                    <View style={styles.cardTextContainer}>
+                      <Text style={styles.cardTitle}>
+                        {s.title || `Session #${s.id}`}
+                      </Text>
+                      <Text style={styles.cardSubtitle}>
+                        {s.notes
+                          ? s.notes
+                          : s.audioFile
+                          ? `Audio: ${s.audioFile}`
+                          : 'No notes'}
+                      </Text>
+                    </View>
+                    <Text style={styles.cardMeta}>
+                      {s.durationMinutes} min
                     </Text>
-                    <Text style={styles.sessionMeta}>
-                      {s.durationMinutes} min · {s.audioFile || 'NO AUDIO'}
-                    </Text>
-                  </View>
-                ))
-              )}
-            </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
 
           {/* Scheduled Sessions */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>SCHEDULED SESSIONS</Text>
-            <View style={styles.sectionBarList}>
-              {scheduledSessions.length === 0 ? (
-                <Text style={styles.emptyText}>No scheduled sessions.</Text>
-              ) : (
-                scheduledSessions.map((s) => (
-                  <View key={s.id} style={styles.sessionRow}>
-                    <Text style={styles.sessionTitle}>
-                      {s.title || `Session #${s.id}`}
+
+            {scheduledSessions.length === 0 ? (
+              <Text style={styles.emptyText}>No scheduled sessions.</Text>
+            ) : (
+              <View style={styles.cardList}>
+                {scheduledSessions.map((s) => (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={styles.card}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      // Start session with scheduled duration
+                      startSessionWithDuration(s.durationMinutes);
+                    }}
+                  >
+                    <View style={styles.cardTextContainer}>
+                      <Text style={styles.cardTitle}>
+                        {s.title || `Session #${s.id}`}
+                      </Text>
+                      <Text style={styles.cardSubtitle}>
+                        {s.notes
+                          ? s.notes
+                          : s.audioFile
+                          ? `Audio: ${s.audioFile}`
+                          : 'No notes'}
+                      </Text>
+                    </View>
+                    <Text style={styles.cardMeta}>
+                      {s.durationMinutes} min
                     </Text>
-                    <Text style={styles.sessionMeta}>
-                      {s.durationMinutes} min · {s.audioFile || 'NO AUDIO'}
-                    </Text>
-                  </View>
-                ))
-              )}
-            </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -124,11 +181,10 @@ export default function HomeScreen() {
   );
 }
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#6B8E6F', 
+    backgroundColor: '#6B8E6F',
   },
   scrollContent: {
     paddingBottom: 40,
@@ -136,31 +192,6 @@ const styles = StyleSheet.create({
   inner: {
     paddingBottom: 20,
     paddingHorizontal: 20,
-  },
-  sectionBarList: {
-    width: '100%',
-    backgroundColor: '#4A6B4E',
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    gap: 10,
-  },
-  sessionRow: {
-    paddingVertical: 4,
-  },
-  sessionTitle: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  sessionMeta: {
-    color: '#D7E2D8',
-    fontSize: 12,
-  },
-  emptyText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    opacity: 0.8,
   },
   content: {
     gap: 30,
@@ -171,29 +202,76 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF', 
+    color: '#FFFFFF',
     textTransform: 'uppercase',
     letterSpacing: 1.5,
     marginBottom: 8,
     paddingTop: 8,
-    paddingBottom: 4
+    paddingBottom: 4,
   },
+
+  // Friends bar
   sectionBar: {
     width: '100%',
-    backgroundColor: '#4A6B4E', 
+    backgroundColor: '#4A6B4E',
     borderRadius: 10,
     paddingVertical: 16,
     paddingHorizontal: 20,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
     minHeight: 60,
-    maxHeight: 80,
+  },
+  sectionBarText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   chevron: {
     fontSize: 36,
     color: '#FFFFFF',
     fontWeight: '200',
     lineHeight: 36,
+  },
+
+  // Cards
+  cardList: {
+    gap: 12,
+  },
+  card: {
+    width: '100%',
+    backgroundColor: '#4A6B4E',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 64,
+  },
+  cardTextContainer: {
+    flexShrink: 1,
+  },
+  cardTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  cardSubtitle: {
+    color: '#E0EDE1',
+    fontSize: 13,
+  },
+  cardMeta: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 12,
+  },
+
+  emptyText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    opacity: 0.8,
   },
 });
