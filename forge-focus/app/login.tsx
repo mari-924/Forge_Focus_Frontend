@@ -12,7 +12,7 @@ export default function LoginScreen() {
     router.replace('/(tabs)');
   };
 
-  const handleGitHubLogin = () => {
+  const handleGitHubLogin = async () => {
     // TODO: Implement GitHub authentication
     console.log('GitHub login pressed');
     router.push('/(tabs)');

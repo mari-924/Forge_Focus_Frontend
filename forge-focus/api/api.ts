@@ -20,6 +20,19 @@ export const verifyGoogleToken = async (googleIdToken: string) => {
 
   return data;
 };
+export async function verifyGithubToken(token: string) {
+  const res = await fetch(`${API_BASE_URL}/api/auth/github`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+
+  if (!res.ok) {
+    throw new Error("GitHub token verification failed");
+  }
+
+  return res.json(); // { access_token }
+}
 
 // 2️⃣ Sign in or create a user (no body, only JWT header)
 export const signInOrCreateUser = async () => {

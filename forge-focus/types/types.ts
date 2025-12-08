@@ -7,12 +7,18 @@ export interface GoogleUser {
   familyName?: string | null;
 }
   
-
+// export interface GitHubUser {
+//   id: string;          // GitHub numeric id as string
+//   login: string;       // username
+//   name: string | null; // display name
+//   avatar_url?: string | null;
+//   email?: string | null; // sometimes null if private
+// }
   
 
 export interface User {
   id: number;
-  googleId: string;
+  googleId: string | null;
   username: string;
   email: string;
   profile_pic: string | null;

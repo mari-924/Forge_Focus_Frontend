@@ -8,7 +8,7 @@ import { initDB } from '@/db/innit';
 import { SessionProvider } from '@/hooks/ctx';
 import { StyleSheet } from 'react-native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Stack } from 'expo-router';
+import { Slot } from 'expo-router';
 
 
 
