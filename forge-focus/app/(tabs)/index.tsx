@@ -136,7 +136,6 @@ export default function HomeScreen() {
               </View>
             )}
           </View>
-
           {/* Scheduled Sessions */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>SCHEDULED SESSIONS</Text>
