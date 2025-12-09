@@ -15,18 +15,11 @@ import { Audio } from 'expo-av';
 import { TabHeader } from '@/components/tab-header';
 import * as SecureStore from 'expo-secure-store';
 
-// Audio source mapping - you can replace these with local files or your own URLs
+// Map audio choices to local bundled assets. Only LOFI currently supported.
 const getAudioSource = (audioType: string) => {
   switch (audioType) {
-    case 'RAIN':
-      // Replace with your rain audio file: require('@/assets/audio/rain.mp3')
-      return { uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' }; // Placeholder
-    case 'JAZZ':
-      // Replace with your jazz audio file: require('@/assets/audio/jazz.mp3')
-      return { uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' }; // Placeholder
     case 'LOFI':
-      // Replace with your lofi audio file: require('@/assets/audio/lofi.mp3')
-      return { uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' }; // Placeholder
+      return require('@/assets/lofi/25_lofi_time.m4a');
     default:
       return null; // NO AUDIO
   }
