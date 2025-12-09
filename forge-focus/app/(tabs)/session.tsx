@@ -16,12 +16,21 @@ import { TabHeader } from '@/components/tab-header';
 import * as SecureStore from 'expo-secure-store';
 
 // Map audio choices to local bundled assets. Only LOFI currently supported.
-const getAudioSource = (audioType: string) => {
-  switch (audioType) {
-    case 'LOFI':
+const getAudioSource = (audioType: string, phase: Phase) => {
+  if (audioType !== 'LOFI') {
+    return null; // NO AUDIO
+  }
+  
+  // Return phase-specific audio
+  switch (phase) {
+    case 'prep':
+      return require('@/assets/lofi/prep_lofi_time.m4a');
+    case 'study':
       return require('@/assets/lofi/25_lofi_time.m4a');
+    case 'break':
+      return require('@/assets/lofi/break_lofi_time.m4a');
     default:
-      return null; // NO AUDIO
+      return null;
   }
 };
 
@@ -62,18 +71,32 @@ export default function SessionScreen() {
 
   const router = useRouter();
 
-  // Initialize audio
+  // Initialize audio mode
   useEffect(() => {
-    const setupAudio = async () => {
-      try {
-        await Audio.setAudioModeAsync({
-          staysActiveInBackground: true,
-          shouldDuckAndroid: true,
-          playThroughEarpieceAndroid: false,
-        });
+    Audio.setAudioModeAsync({
+      staysActiveInBackground: true,
+      shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: false,
+    });
+  }, []);
 
-        const audioSource = getAudioSource(audioType);
-        if (audioSource) {
+  // Load and switch audio based on phase
+  useEffect(() => {
+    const loadAudioForPhase = async () => {
+      // Unload previous audio if it exists
+      if (soundRef.current) {
+        try {
+          await soundRef.current.unloadAsync();
+          soundRef.current = null;
+        } catch (error) {
+          console.log('Error unloading previous audio:', error);
+        }
+      }
+
+      // Load new audio for current phase
+      const audioSource = getAudioSource(audioType, phase);
+      if (audioSource) {
+        try {
           const { sound } = await Audio.Sound.createAsync(
             audioSource,
             { 
@@ -83,13 +106,13 @@ export default function SessionScreen() {
             }
           );
           soundRef.current = sound;
+        } catch (error) {
+          console.log('Error loading audio for phase:', error);
         }
-      } catch (error) {
-        console.log('Error setting up audio:', error);
       }
     };
 
-    setupAudio();
+    loadAudioForPhase();
 
     // Cleanup audio on unmount
     return () => {
@@ -98,7 +121,7 @@ export default function SessionScreen() {
         soundRef.current = null;
       }
     };
-  }, [audioType]);
+  }, [audioType, phase]);
 
   // Reset when the total non-prep duration changes (e.g., new route params)
   useEffect(() => {
@@ -116,15 +139,15 @@ export default function SessionScreen() {
       if (!soundRef.current) return;
 
       try {
-        if (isPlaying && remainingTime > 0) {
-          // Play audio when timer starts
-          const status = await soundRef.current.getStatusAsync();
-          if (!status.isLoaded || !status.isPlaying) {
+        const status = await soundRef.current.getStatusAsync();
+        
+        if (isPlaying && remainingTime > 0 && !isFinished) {
+          // Play audio when timer starts (only if audio is loaded)
+          if (status.isLoaded && !status.isPlaying) {
             await soundRef.current.playAsync();
           }
         } else {
           // Pause audio when timer pauses or stops
-          const status = await soundRef.current.getStatusAsync();
           if (status.isLoaded && status.isPlaying) {
             await soundRef.current.pauseAsync();
           }
@@ -134,8 +157,10 @@ export default function SessionScreen() {
       }
     };
 
-    controlAudio();
-  }, [isPlaying, remainingTime]);
+    // Small delay to ensure audio is loaded after phase change
+    const timeoutId = setTimeout(controlAudio, 100);
+    return () => clearTimeout(timeoutId);
+  }, [isPlaying, remainingTime, isFinished, phase]);
 
   const completeSession = useCallback(async () => {
     if (!sessionId) return;
