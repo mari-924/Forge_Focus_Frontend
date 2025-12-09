@@ -1,5 +1,5 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,14 +11,39 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import Sound from 'react-native-sound';
 import { TabHeader } from '@/components/tab-header';
 import * as SecureStore from 'expo-secure-store';
+
+// Enable playback in silence mode (iOS)
+Sound.setCategory('Playback');
+
+// Map audio choices to local bundled assets. Only LOFI currently supported.
+const getAudioSource = (audioType: string, phase: Phase) => {
+  if (audioType !== 'LOFI') {
+    return null; // NO AUDIO
+  }
+  
+  // Return phase-specific audio
+  // react-native-sound requires the actual require() result
+  switch (phase) {
+    case 'prep':
+      return require('@/assets/lofi/prep_lofi_time.m4a');
+    case 'study':
+      return require('@/assets/lofi/25_lofi_time.m4a');
+    case 'break':
+      return require('@/assets/lofi/break_lofi_time.m4a');
+    default:
+      return null;
+  }
+};
 
 type Phase = 'prep' | 'study' | 'break';
 
 export default function SessionScreen() {
   const params = useLocalSearchParams<{
     duration: string;
+    audio?: string;
     sessionId?: string;
     from?: string;
   }>();
@@ -26,6 +51,7 @@ export default function SessionScreen() {
 
   const duration = parseInt(params.duration || '0', 10);
   const durationInSeconds = duration * 60;
+  const audioType = params.audio || 'NO AUDIO';
 
   const totalNonPrepDurationInSeconds = durationInSeconds || 25 * 60;
 
@@ -44,9 +70,44 @@ export default function SessionScreen() {
   const [isFinished, setIsFinished] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const soundRef = useRef<Sound | null>(null);
   const progress = useSharedValue(1);
 
   const router = useRouter();
+
+  // Load and switch audio based on phase
+  useEffect(() => {
+    // Unload previous audio if it exists
+    if (soundRef.current) {
+      soundRef.current.stop();
+      soundRef.current.release();
+      soundRef.current = null;
+    }
+
+    // Load new audio for current phase
+    const audioSource = getAudioSource(audioType, phase);
+    if (audioSource) {
+      const sound = new Sound(audioSource, (error: Error | null) => {
+        if (error) {
+          console.log('Error loading audio for phase:', error);
+          return;
+        }
+        // Set volume and looping
+        sound.setVolume(0.5);
+        sound.setNumberOfLoops(-1); // -1 means infinite loop
+        soundRef.current = sound;
+      });
+    }
+
+    // Cleanup audio on unmount
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.stop();
+        soundRef.current.release();
+        soundRef.current = null;
+      }
+    };
+  }, [audioType, phase]);
 
   // Reset when the total non-prep duration changes (e.g., new route params)
   useEffect(() => {
@@ -57,6 +118,54 @@ export default function SessionScreen() {
     setTotalRemaining(totalNonPrepDurationInSeconds);
     progress.value = 1;
   }, [totalNonPrepDurationInSeconds]);
+
+  // Control audio playback based on timer state
+  useEffect(() => {
+    if (!soundRef.current) return;
+
+    // Small delay to ensure audio is loaded after phase change
+    const timeoutId = setTimeout(() => {
+      if (!soundRef.current) return;
+
+      try {
+        if (isPlaying && remainingTime > 0 && !isFinished) {
+          // Play audio when timer starts
+          if (!soundRef.current.isPlaying()) {
+            soundRef.current.play((success: boolean) => {
+              if (!success) {
+                console.log('Error playing audio');
+              }
+            });
+          }
+        } else {
+          // Pause audio when timer pauses or stops
+          if (soundRef.current.isPlaying()) {
+            soundRef.current.pause();
+          }
+        }
+      } catch (error) {
+        console.log('Error controlling audio:', error);
+      }
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [isPlaying, remainingTime, isFinished, phase]);
+
+  const completeSession = useCallback(async () => {
+    if (!sessionId) return;
+    const jwt = await SecureStore.getItemAsync('jwt');
+
+    try {
+      await fetch(`${process.env?.EXPO_PUBLIC_API_URL}/sessions/${sessionId}/complete`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: jwt ? `Bearer ${jwt}` : '',
+        },
+      });
+    } catch (e) {
+      console.log('Failed to mark session complete', e);
+    }
+  }, [sessionId]);
 
   useEffect(() => {
     if (!isPlaying || isFinished) {
@@ -119,6 +228,11 @@ export default function SessionScreen() {
           setIsFinished(true);
           progress.value = withTiming(0, { duration: 300 });
 
+          // Stop audio when session ends
+          if (soundRef.current) {
+            soundRef.current.stop();
+          }
+
           // Optional: auto-mark session complete
           completeSession();
 
@@ -146,7 +260,8 @@ export default function SessionScreen() {
     progress,
   ]);
 
-  const handleReset = () => {
+  const handleReset = async () => {
+    // Reset back to prep phase
     setPhase('prep');
     setRemainingTime(prepDurationInSeconds);
     setIsPlaying(false);
@@ -157,25 +272,28 @@ export default function SessionScreen() {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-  };
-
-  const completeSession = async () => {
-    if (!sessionId) return;
-    const jwt = await SecureStore.getItemAsync('jwt');
-
-    try {
-      await fetch(`${process.env?.EXPO_PUBLIC_API_URL}/sessions/${sessionId}/complete`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: jwt ? `Bearer ${jwt}` : '',
-        },
-      });
-    } catch (e) {
-      console.log('Failed to mark session complete', e);
+    // Stop and reset audio
+    if (soundRef.current) {
+      try {
+        soundRef.current.stop();
+        soundRef.current.setCurrentTime(0);
+      } catch (error) {
+        console.log('Error resetting audio:', error);
+      }
     }
   };
 
   const handleEndSession = async () => {
+    // Stop audio before ending session
+    if (soundRef.current) {
+      try {
+        soundRef.current.stop();
+        soundRef.current.release();
+        soundRef.current = null;
+      } catch (error) {
+        console.log('Error stopping audio:', error);
+      }
+    }
     await completeSession();
     router.push('/');
   };
