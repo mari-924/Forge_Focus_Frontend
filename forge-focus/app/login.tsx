@@ -1,121 +1,123 @@
-import { Image } from 'expo-image';
-import { router } from 'expo-router';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image } from "expo-image";
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSession } from "@/hooks/ctx";
-import * as AuthSession from "expo-auth-session";
+import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import Constants from "expo-constants";
-import * as SecureStore from "expo-secure-store";
-import useAuth0 from "@/app/auth";
-
-
-const redirectUri = AuthSession.makeRedirectUri({
-  scheme: "forgefocus", // MUST match your scheme
-  path: "redirect",
-});
-if(!Constants.expoConfig?.extra){
-  throw new Error("Missing Expo Config Extra");
-}
-
-const auth0Domain = Constants.expoConfig.extra.auth0Domain;
-const clientId = Constants.expoConfig.extra.auth0ClientId;
+import LoadingScreen from "@/components/LoadingScreen";
 
 export default function LoginScreen() {
-  const { login } = useAuth0();
+  const { signIn, signInWithGitHub, session } = useSession();
+  const [loggingIn, setLoggingIn] = useState(false);
 
-  const { signIn,signInWithGitHub } = useSession();
+  // Auto-navigate when session updates
+  useEffect(() => {
+    if (loggingIn && session) {
+      setLoggingIn(false);
+      router.replace("/(tabs)");
+    }
+  }, [session, loggingIn]);
 
   const handleGoogleLogin = async () => {
-    // TODO: Implement Google authentication
-    console.log('Google login pressed');
-    await signIn();
-    router.replace('/(tabs)');
+    if (loggingIn) return;
+    setLoggingIn(true);
+    try {
+      await signIn();
+    } catch (e) {
+      console.error(e);
+      setLoggingIn(false);
+    }
   };
 
   const handleGitHubLogin = async () => {
-    await signInWithGitHub();
-    router.replace('/(tabs)');
+    if (loggingIn) return;
+    setLoggingIn(true);
+    try {
+      await signInWithGitHub();
+    } catch (e) {
+      console.error(e);
+      setLoggingIn(false);
+    }
   };
 
   return (
     <View style={styles.container}>
-      {/* Logo Section */}
+
+      {/* 🔥 FULLSCREEN LOADING OVERLAY */}
+      {loggingIn && (
+        <View style={styles.loadingOverlay}>
+          <LoadingScreen />
+        </View>
+      )}
+
+      {/* NORMAL LOGIN UI */}
       <View style={styles.logoContainer}>
         <Image
-          source={require('@/assets/images/Forge-Focus-logo.png')}
+          source={require("@/assets/images/Forge-Focus-logo.png")}
           style={styles.logo}
           contentFit="contain"
         />
       </View>
 
-      {/* Login Label */}
       <Text style={styles.loginLabel}>LOGIN</Text>
 
-      {/* Input Fields */}
       <View style={styles.inputsContainer}>
         <TextInput
           style={styles.input}
           placeholder="ENTER EMAIL..."
-          placeholderTextColor="#999999"
-          keyboardType="email-address"
-          autoCapitalize="none"
+          placeholderTextColor="#999"
         />
         <TextInput
           style={styles.input}
           placeholder="ENTER PASSWORD..."
-          placeholderTextColor="#999999"
+          placeholderTextColor="#999"
           secureTextEntry
-          autoCapitalize="none"
         />
       </View>
 
-      {/* OR Divider */}
       <View style={styles.dividerContainer}>
         <View style={styles.dividerLine} />
         <Text style={styles.dividerText}>OR</Text>
         <View style={styles.dividerLine} />
       </View>
 
-      {/* Social Login Icons */}
       <View style={styles.socialContainer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.socialIcon}
           onPress={handleGoogleLogin}
-          activeOpacity={0.7}
+          disabled={loggingIn}
         >
           <Image
-            source={require('@/assets/images/google-logo.png')}
+            source={require("@/assets/images/google-logo.png")}
             style={styles.socialLogo}
-            contentFit="contain"
           />
         </TouchableOpacity>
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.socialIcon}
           onPress={handleGitHubLogin}
-          activeOpacity={0.7}
+          disabled={loggingIn}
         >
           <Image
-            source={require('@/assets/images/git-hub-logo.png')}
+            source={require("@/assets/images/git-hub-logo.png")}
             style={styles.socialLogo}
-            contentFit="contain"
           />
         </TouchableOpacity>
       </View>
 
-      {/* Buttons Container */}
+      {/* NORMAL LOGIN + BACK BUTTONS */}
       <View style={styles.buttonsContainer}>
-        {/* Login Button */}
-        <TouchableOpacity 
-          style={styles.loginButton}
-          onPress={() => router.push('/(tabs)')}
+        <TouchableOpacity
+          style={[styles.loginButton, loggingIn && { opacity: 0.3 }]}
+          disabled={loggingIn}
+          onPress={() => router.push("/(tabs)")}
         >
           <Text style={styles.loginButtonText}>LOGIN</Text>
         </TouchableOpacity>
 
-        {/* Back Button */}
-        <TouchableOpacity 
-          style={styles.loginButton}
-          onPress={() => router.push('/')}
+        <TouchableOpacity
+          style={[styles.loginButton, loggingIn && { opacity: 0.3 }]}
+          disabled={loggingIn}
+          onPress={() => router.push("/")}
         >
           <Text style={styles.loginButtonText}>BACK</Text>
         </TouchableOpacity>
@@ -124,103 +126,76 @@ export default function LoginScreen() {
   );
 }
 
+// STYLES
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#6B8E6F',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
+    backgroundColor: "#6B8E6F",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
+
+  // 🔥 FULL SCREEN overlay for loading screen
+  loadingOverlay: {
+    position: "absolute",
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: "#6B8E6F",
+    zIndex: 20,
   },
-  logo: {
-    width: 200,
-    height: 100,
-  },
+
+  logoContainer: { marginBottom: 20 },
+  logo: { width: 200, height: 100 },
   loginLabel: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    textTransform: 'uppercase',
-    letterSpacing: 2,
+    fontWeight: "600",
+    color: "#FFF",
     marginBottom: 30,
+    letterSpacing: 2,
   },
   inputsContainer: {
-    width: '100%',
+    width: "100%",
     maxWidth: 350,
-    gap: 15,
     marginBottom: 30,
+    gap: 15,
   },
   input: {
-    width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFF",
     borderRadius: 12,
+    padding: 14,
     borderWidth: 1,
-    borderColor: '#CCCCCC',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: '#000000',
+    borderColor: "#CCC",
   },
   dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
+    flexDirection: "row",
+    alignItems: "center",
     maxWidth: 350,
+    width: "100%",
     marginBottom: 30,
   },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  dividerText: {
-    marginHorizontal: 15,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  socialContainer: {
-    flexDirection: 'row',
-    gap: 30,
-    marginBottom: 40,
-  },
+  dividerLine: { flex: 1, height: 1, backgroundColor: "#FFF" },
+  dividerText: { marginHorizontal: 15, color: "#FFF", fontWeight: "600" },
+  socialContainer: { flexDirection: "row", gap: 30, marginBottom: 40 },
   socialIcon: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
+    backgroundColor: "#FFF",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  socialLogo: {
-    width: 40,
-    height: 40,
-  },
-  buttonsContainer: {
-    width: '100%',
-    maxWidth: 350,
-    gap: 15,
-  },
+  socialLogo: { width: 40, height: 40 },
+  buttonsContainer: { width: "100%", maxWidth: 350, gap: 15 },
   loginButton: {
-    width: '100%',
-    backgroundColor: '#8FA892',
+    width: "100%",
+    backgroundColor: "#8FA892",
     borderRadius: 25,
     paddingVertical: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
   },
   loginButtonText: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    textTransform: 'uppercase',
+    fontWeight: "bold",
+    color: "#FFF",
     letterSpacing: 2,
   },
 });

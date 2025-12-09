@@ -7,11 +7,12 @@ import { useSession } from '@/hooks/ctx';
 
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import LoadingScreen from "@/components/LoadingScreen";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { session, isLoading } = useSession();
-  if (isLoading) return null;
+if (isLoading) return <LoadingScreen />  // prevents flicker
   console.log('Current session:', session);
   if (!session) return <Redirect href="/login" />;
   // console.log('Current session:', session);
