@@ -1,6 +1,5 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigation } from '@react-navigation/native';
 import {
   StyleSheet,
   Text,
@@ -41,20 +40,25 @@ export default function SessionScreen() {
     from?: string;
   }>();
   const sessionId = params.sessionId;
-  const duration = parseInt(params.duration || '0', 10); // Duration in minutes
+  const duration = parseInt(params.duration || '0', 10);
   const durationInSeconds = duration * 60;
   const audioType = params.audio || 'NO AUDIO';
 
-  const [remainingTime, setRemainingTime] = useState(durationInSeconds);
+  // Prep duration (5 minutes)
+  const prepDurationInSeconds = 5 * 60;
+
+  const [remainingTime, setRemainingTime] = useState(prepDurationInSeconds);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // NEW: track whether we're in prep or main session
+  const [isPrepPhase, setIsPrepPhase] = useState(true);
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
   const progress = useSharedValue(1);
   const circleSize = 280;
 
   const router = useRouter();
-  const from = params.from; 
-  const navigation = useNavigation();
 
   // Initialize audio
   useEffect(() => {
@@ -96,8 +100,9 @@ export default function SessionScreen() {
 
   // Initialize progress when component mounts or duration changes
   useEffect(() => {
+    setIsPrepPhase(true);
+    setRemainingTime(prepDurationInSeconds);
     progress.value = 1;
-    setRemainingTime(durationInSeconds);
   }, [durationInSeconds]);
 
   // Control audio playback based on timer state
@@ -129,19 +134,37 @@ export default function SessionScreen() {
 
   useEffect(() => {
     if (isPlaying && remainingTime > 0) {
+      
       intervalRef.current = setInterval(() => {
         setRemainingTime((prev) => {
           if (prev <= 1) {
-            setIsPlaying(false);
-            progress.value = withTiming(0, { duration: 300 });
-            // Stop audio when timer ends
-            if (soundRef.current) {
-              soundRef.current.stopAsync();
+            // Phase just ended
+            if (isPrepPhase) {
+              // Prep finished -> start main session automatically
+              setIsPrepPhase(false);
+              // Reset progress bar for the main session
+              progress.value = withTiming(1, { duration: 300 });
+              return durationInSeconds; // start main session full
+            } else {
+              // Main session finished
+              setIsPlaying(false);
+              progress.value = withTiming(0, { duration: 300 });
+              // Stop audio when timer ends
+              if (soundRef.current) {
+                soundRef.current.stopAsync();
+              }
+              return 0;
             }
-            return 0;
           }
+
+          // Still in current phase: decrement
+          const phaseTotal = isPrepPhase
+            ? prepDurationInSeconds
+            : durationInSeconds || 1; // avoid divide-by-zero
+
           const newTime = prev - 1;
-          const newProgress = newTime / durationInSeconds;
+          const newProgress = newTime / phaseTotal;
+
           progress.value = withTiming(newProgress, { duration: 1000 });
           return newTime;
         });
@@ -159,10 +182,12 @@ export default function SessionScreen() {
         intervalRef.current = null;
       }
     };
-  }, [isPlaying, durationInSeconds, progress]);
+  }, [isPlaying, isPrepPhase, durationInSeconds, progress]);
 
   const handleReset = async () => {
-    setRemainingTime(durationInSeconds);
+    // Reset back to prep phase
+    setIsPrepPhase(true);
+    setRemainingTime(prepDurationInSeconds);
     setIsPlaying(false);
     progress.value = withTiming(1, { duration: 300 });
     if (intervalRef.current) {
@@ -179,6 +204,7 @@ export default function SessionScreen() {
       }
     }
   };
+
   const completeSession = async () => {
     if (!sessionId) return;
     const jwt = await SecureStore.getItemAsync("jwt");
@@ -207,7 +233,7 @@ export default function SessionScreen() {
       }
     }
     await completeSession();
-    router.push('/');   // default back to home
+    router.push('/');
   };
 
   const formatTime = (time: number) => {
@@ -216,9 +242,13 @@ export default function SessionScreen() {
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
 
-  // Calculate color based on remaining time
+  // Calculate color based on remaining time for current phase
   const getCircleColor = () => {
-    const percentage = remainingTime / durationInSeconds;
+    const phaseTotal = isPrepPhase
+      ? prepDurationInSeconds
+      : durationInSeconds || 1;
+    const percentage = remainingTime / phaseTotal;
+
     if (percentage > 0.66) return '#9ECAA3';
     if (percentage > 0.33) return '#6B8E6F';
     if (percentage > 0) return '#4A6B4E';
@@ -240,6 +270,10 @@ export default function SessionScreen() {
       opacity: opacity * 0.3,
     };
   });
+
+  const displayTime = formatTime(remainingTime);
+  const circleColor = getCircleColor();
+
   return (
     <View style={styles.container}>
       <TabHeader title="FOCUS SESSION" />
@@ -254,8 +288,8 @@ export default function SessionScreen() {
             style={[
               styles.circleRing, 
               { 
-                borderColor: getCircleColor(),
-                backgroundColor: getCircleColor() + '20', // Add transparency
+                borderColor: circleColor,
+                backgroundColor: circleColor + '20', // Add transparency
               },
               animatedRingStyle
             ]} 
@@ -265,21 +299,24 @@ export default function SessionScreen() {
           <Animated.View 
             style={[
               styles.circleInner,
-              { backgroundColor: getCircleColor() },
+              { backgroundColor: circleColor },
               animatedProgressStyle
             ]} 
           />
           
           {/* Timer text */}
           <View style={styles.timerTextContainer}>
-            <Text style={styles.timerText}>{formatTime(remainingTime)}</Text>
+            <Text style={styles.phaseLabel}>
+              {isPrepPhase ? 'PREP TIME' : 'FOCUS TIME'}
+            </Text>
+            <Text style={styles.timerText}>{displayTime}</Text>
           </View>
         </View>
 
         <View style={styles.controls}>
           <TouchableOpacity
             style={styles.controlButton}
-            onPress={() => setIsPlaying(!isPlaying)}
+            onPress={() => setIsPlaying((prev) => !prev)}
           >
             <Text style={styles.controlButtonText}>
               {isPlaying ? 'PAUSE' : 'START'}
@@ -351,6 +388,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     zIndex: 10,
   },
+  phaseLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 2,
+    marginBottom: 4,
+  },
   timerText: {
     fontSize: 48,
     fontWeight: '800',
@@ -377,4 +421,3 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
-
