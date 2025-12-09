@@ -21,7 +21,7 @@ export default function SessionScreen() {
     from?: string;
   }>();
   const sessionId = params.sessionId;
-  const duration = parseInt(params.duration || '0', 10); // Duration in minutes
+  const duration = parseInt(params.duration || '0', 10);
   const durationInSeconds = duration * 60;
 
   // Prep duration (5 minutes)
@@ -39,7 +39,6 @@ export default function SessionScreen() {
 
   const router = useRouter();
 
-  // Initialize when duration changes: go back to prep phase
   useEffect(() => {
     setIsPrepPhase(true);
     setRemainingTime(prepDurationInSeconds);
@@ -48,6 +47,7 @@ export default function SessionScreen() {
 
   useEffect(() => {
     if (isPlaying && remainingTime > 0) {
+      
       intervalRef.current = setInterval(() => {
         setRemainingTime((prev) => {
           if (prev <= 1) {
@@ -123,7 +123,7 @@ export default function SessionScreen() {
   
   const handleEndSession = async () => {
     await completeSession();
-    router.push('/');   // default back to home
+    router.push('/');
   };
 
   const formatTime = (time: number) => {
