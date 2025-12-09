@@ -221,6 +221,7 @@ export default function SessionScreen() {
   });
 
   const displayTime = isFinished ? '00:00' : formatTime(remainingTime);
+  const totalDisplayTime = formatTime(Math.max(totalRemaining, 0)); // small total non-prep timer
   const circleColor = getCircleColor();
 
   const phaseLabelText = isFinished
@@ -236,6 +237,15 @@ export default function SessionScreen() {
       <TabHeader title="FOCUS SESSION" />
       
       <View style={styles.content}>
+        {/* Small total non-prep timer */}
+        <View style={styles.totalTimerContainer}>
+          <Text style={styles.totalTimerLabel}>SESSION TIME LEFT</Text>
+          <Text style={styles.totalTimerText}>{totalDisplayTime}</Text>
+          {/* If you literally want seconds instead:
+              <Text style={styles.totalTimerText}>{totalRemaining}s</Text>
+           */}
+        </View>
+
         <View style={styles.timerContainer}>
           {/* Outer ring (background) */}
           <View style={[styles.circleRing, styles.circleRingBackground]} />
@@ -313,7 +323,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    gap: 40,
+    gap: 32,
+  },
+  totalTimerContainer: {
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  totalTimerLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#E6F2E7',
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  totalTimerText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 1,
   },
   timerContainer: {
     alignItems: 'center',
