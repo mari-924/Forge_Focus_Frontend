@@ -24,7 +24,33 @@ export function makeUsersRepo(db: SQLiteDatabase) {
       );
     },
 
- 
+    async upsert(newUser: NewUser): Promise<User> {
+      const existing = await db.getFirstAsync<User>(
+        "SELECT * FROM user WHERE email = ?",
+        [newUser.email]
+      );
+    
+      if (existing) {
+        await db.runAsync(
+          "UPDATE user SET username = ?, profile_pic = ?, g_id = ? WHERE email = ?",
+          [
+            newUser.username,        // ALWAYS overwrite
+            newUser.profile_pic,     // ALWAYS overwrite
+            newUser.googleId ?? existing.googleId, // overwrite only if provided
+            newUser.email
+          ]
+        );
+    
+        return await db.getFirstAsync<User>(
+          "SELECT * FROM user WHERE email = ?",
+          [newUser.email]
+        ) as User;
+      }
+    
+      // otherwise create new
+      return await this.create(newUser);
+    },
+    
 
     async create(newUser: NewUser): Promise<User> {
       const username = (newUser.username ?? "").trim();

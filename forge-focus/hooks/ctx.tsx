@@ -120,12 +120,7 @@
         const { access_token } = await verifyGoogleToken(idToken);
         await SecureStore.setItemAsync("jwt", access_token);
 
-        let dbUser = await users.getByGoogleId(googleUser.id);
-        if (!dbUser) {
-          await db.withTransactionAsync(async () => {
-            dbUser = await users.create(mapGoogleToUser(googleUser));
-          });
-        }
+        let dbUser = await users.upsert(mapGoogleToUser(googleUser));
         const backendUser = await signInOrCreateUser();
         setUser(backendUser);
         setSession(googleUser.email);
@@ -156,17 +151,12 @@
       };
     
       // 3️⃣ Upsert to SQLite
-      let dbUser = await users.getByEmail(gh.email);
-      if (!dbUser) {
-        await db.withTransactionAsync(async () => {
-          dbUser = await users.create({
+      let dbUser = await users.upsert ({
             googleId: null,
             username: gh.username,
             email: gh.email,
             profile_pic: gh.avatar_url,
-          });
-        });
-      }
+      });
     
       // 4️⃣ Backend ensures user exists
       const backendUser = await signInOrCreateUser();

@@ -6,14 +6,15 @@ export async function initDB(db: SQLiteDatabase) {
 
   try {
     await db.execAsync(`
-      CREATE TABLE IF NOT EXISTS user (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        g_id TEXT UNIQUE,
-        username TEXT,
-        email TEXT UNIQUE,
-        profile_pic TEXT,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
+    CREATE TABLE IF NOT EXISTS user (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      g_id TEXT UNIQUE,
+      github_id TEXT UNIQUE,        -- ADD THIS (optional)
+      username TEXT,
+      email TEXT UNIQUE,
+      profile_pic TEXT,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
       CREATE TABLE IF NOT EXISTS profile (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
