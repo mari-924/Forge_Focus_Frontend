@@ -11,9 +11,12 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { Audio } from 'expo-av';
+import Sound from 'react-native-sound';
 import { TabHeader } from '@/components/tab-header';
 import * as SecureStore from 'expo-secure-store';
+
+// Enable playback in silence mode (iOS)
+Sound.setCategory('Playback');
 
 // Map audio choices to local bundled assets. Only LOFI currently supported.
 const getAudioSource = (audioType: string, phase: Phase) => {
@@ -22,6 +25,7 @@ const getAudioSource = (audioType: string, phase: Phase) => {
   }
   
   // Return phase-specific audio
+  // react-native-sound requires the actual require() result
   switch (phase) {
     case 'prep':
       return require('@/assets/lofi/prep_lofi_time.m4a');
@@ -66,58 +70,40 @@ export default function SessionScreen() {
   const [isFinished, setIsFinished] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundRef = useRef<Sound | null>(null);
   const progress = useSharedValue(1);
 
   const router = useRouter();
 
-  // Initialize audio mode
-  useEffect(() => {
-    Audio.setAudioModeAsync({
-      staysActiveInBackground: true,
-      shouldDuckAndroid: true,
-      playThroughEarpieceAndroid: false,
-    });
-  }, []);
-
   // Load and switch audio based on phase
   useEffect(() => {
-    const loadAudioForPhase = async () => {
-      // Unload previous audio if it exists
-      if (soundRef.current) {
-        try {
-          await soundRef.current.unloadAsync();
-          soundRef.current = null;
-        } catch (error) {
-          console.log('Error unloading previous audio:', error);
-        }
-      }
+    // Unload previous audio if it exists
+    if (soundRef.current) {
+      soundRef.current.stop();
+      soundRef.current.release();
+      soundRef.current = null;
+    }
 
-      // Load new audio for current phase
-      const audioSource = getAudioSource(audioType, phase);
-      if (audioSource) {
-        try {
-          const { sound } = await Audio.Sound.createAsync(
-            audioSource,
-            { 
-              isLooping: true,
-              volume: 0.5, // Adjust volume (0.0 to 1.0)
-              shouldPlay: false,
-            }
-          );
-          soundRef.current = sound;
-        } catch (error) {
+    // Load new audio for current phase
+    const audioSource = getAudioSource(audioType, phase);
+    if (audioSource) {
+      const sound = new Sound(audioSource, (error: Error | null) => {
+        if (error) {
           console.log('Error loading audio for phase:', error);
+          return;
         }
-      }
-    };
-
-    loadAudioForPhase();
+        // Set volume and looping
+        sound.setVolume(0.5);
+        sound.setNumberOfLoops(-1); // -1 means infinite loop
+        soundRef.current = sound;
+      });
+    }
 
     // Cleanup audio on unmount
     return () => {
       if (soundRef.current) {
-        soundRef.current.unloadAsync();
+        soundRef.current.stop();
+        soundRef.current.release();
         soundRef.current = null;
       }
     };
@@ -135,30 +121,33 @@ export default function SessionScreen() {
 
   // Control audio playback based on timer state
   useEffect(() => {
-    const controlAudio = async () => {
+    if (!soundRef.current) return;
+
+    // Small delay to ensure audio is loaded after phase change
+    const timeoutId = setTimeout(() => {
       if (!soundRef.current) return;
 
       try {
-        const status = await soundRef.current.getStatusAsync();
-        
         if (isPlaying && remainingTime > 0 && !isFinished) {
-          // Play audio when timer starts (only if audio is loaded)
-          if (status.isLoaded && !status.isPlaying) {
-            await soundRef.current.playAsync();
+          // Play audio when timer starts
+          if (!soundRef.current.isPlaying()) {
+            soundRef.current.play((success: boolean) => {
+              if (!success) {
+                console.log('Error playing audio');
+              }
+            });
           }
         } else {
           // Pause audio when timer pauses or stops
-          if (status.isLoaded && status.isPlaying) {
-            await soundRef.current.pauseAsync();
+          if (soundRef.current.isPlaying()) {
+            soundRef.current.pause();
           }
         }
       } catch (error) {
         console.log('Error controlling audio:', error);
       }
-    };
+    }, 100);
 
-    // Small delay to ensure audio is loaded after phase change
-    const timeoutId = setTimeout(controlAudio, 100);
     return () => clearTimeout(timeoutId);
   }, [isPlaying, remainingTime, isFinished, phase]);
 
@@ -241,7 +230,7 @@ export default function SessionScreen() {
 
           // Stop audio when session ends
           if (soundRef.current) {
-            soundRef.current.stopAsync();
+            soundRef.current.stop();
           }
 
           // Optional: auto-mark session complete
@@ -286,8 +275,8 @@ export default function SessionScreen() {
     // Stop and reset audio
     if (soundRef.current) {
       try {
-        await soundRef.current.stopAsync();
-        await soundRef.current.setPositionAsync(0);
+        soundRef.current.stop();
+        soundRef.current.setCurrentTime(0);
       } catch (error) {
         console.log('Error resetting audio:', error);
       }
@@ -298,8 +287,8 @@ export default function SessionScreen() {
     // Stop audio before ending session
     if (soundRef.current) {
       try {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
+        soundRef.current.stop();
+        soundRef.current.release();
         soundRef.current = null;
       } catch (error) {
         console.log('Error stopping audio:', error);
