@@ -14,40 +14,79 @@ import Animated, {
 } from 'react-native-reanimated';
 import { TabHeader } from '@/components/tab-header';
 import * as SecureStore from 'expo-secure-store';
+import { Audio } from 'expo-av';
 
 export default function SessionScreen() {
   const params = useLocalSearchParams<{
     duration: string;
     sessionId?: string;
     from?: string;
+    audio?: string;
   }>();
   const sessionId = params.sessionId;
-  const duration = parseInt(params.duration || '0', 10); // Duration in minutes
+  const duration = parseInt(params.duration || '0', 10);
   const durationInSeconds = duration * 60;
+  const audioOption = params.audio || 'NO AUDIO';
 
   const [remainingTime, setRemainingTime] = useState(durationInSeconds);
   const [isPlaying, setIsPlaying] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const progress = useSharedValue(1);
   const circleSize = 280;
+  const soundRef = useRef<Audio.Sound | null>(null);
 
   const router = useRouter();
   const from = params.from; 
   const navigation = useNavigation();
 
-  // Initialize progress when component mounts or duration changes
   useEffect(() => {
     progress.value = 1;
     setRemainingTime(durationInSeconds);
   }, [durationInSeconds]);
 
   useEffect(() => {
+    const loadAudio = async () => {
+      if (audioOption === 'LOFI') {
+        try {
+          await Audio.setAudioModeAsync({
+            playsInSilentModeIOS: true,
+            staysActiveInBackground: true,
+          });
+
+          const { sound } = await Audio.Sound.createAsync(
+            require('@/lofi.mp3'),
+            { isLooping: true, volume: 0.5 }
+          );
+          soundRef.current = sound;
+        } catch (error) {
+          console.error('Error loading audio:', error);
+        }
+      }
+    };
+
+    loadAudio();
+
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+      }
+    };
+  }, [audioOption]);
+
+  useEffect(() => {
     if (isPlaying && remainingTime > 0) {
+      if (soundRef.current) {
+        soundRef.current.playAsync();
+      }
+      
       intervalRef.current = setInterval(() => {
         setRemainingTime((prev) => {
           if (prev <= 1) {
             setIsPlaying(false);
             progress.value = withTiming(0, { duration: 300 });
+            if (soundRef.current) {
+              soundRef.current.pauseAsync();
+            }
             return 0;
           }
           const newTime = prev - 1;
@@ -57,6 +96,10 @@ export default function SessionScreen() {
         });
       }, 1000);
     } else {
+      if (soundRef.current) {
+        soundRef.current.pauseAsync();
+      }
+      
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
@@ -75,6 +118,10 @@ export default function SessionScreen() {
     setRemainingTime(durationInSeconds);
     setIsPlaying(false);
     progress.value = withTiming(1, { duration: 300 });
+    if (soundRef.current) {
+      soundRef.current.stopAsync();
+      soundRef.current.setPositionAsync(0);
+    }
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -97,8 +144,11 @@ export default function SessionScreen() {
   };
   
   const handleEndSession = async () => {
+    if (soundRef.current) {
+      await soundRef.current.stopAsync();
+    }
     await completeSession();
-    router.push('/');   // default back to home
+    router.push('/');
   };
 
   const formatTime = (time: number) => {
