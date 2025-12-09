@@ -9,8 +9,8 @@ import {
 import { router } from 'expo-router';
 import { TabHeader } from '@/components/tab-header';
 
-const increments = [30, 45, 50, 60];
-const audioOptions = ['NO AUDIO', 'RAIN', 'TRAIN', 'LOFI'];
+const increments = [30, 60];
+const audioOptions = ['NO AUDIO', 'RAIN', 'JAZZ', 'LOFI'];
 
 export default function ExploreScreen() {
   const [minutes, setMinutes] = useState(0);
@@ -32,18 +32,18 @@ export default function ExploreScreen() {
     setSelectedAudio(audio);
   };
 
-  // Adjust timer with arrows
+  // Adjust timer with arrows (minimum 60 minutes)
   const adjustTimer = (delta: number) => {
     if (selectedIncrement !== null) {
       const incrementAmount = delta > 0 ? selectedIncrement : -selectedIncrement;
-      const newMinutes = Math.max(0, minutes + incrementAmount);
+      const newMinutes = Math.max(60, minutes + incrementAmount);
       setMinutes(newMinutes);
     }
   };
 
-  // Navigate to session page with selected duration and audio
+  // Navigate to session page with selected duration and audio (minimum 60 minutes)
   const handleCreateSession = () => {
-    if (minutes > 0) {
+    if (minutes >= 60) {
       router.push({
         pathname: '/session',
         params: { 
@@ -73,10 +73,16 @@ export default function ExploreScreen() {
                   styles.pill,
                   selectedIncrement === value && styles.pillSelected,
                 ]}
-                onPress={() => selectIncrement(value)}
+                onPress={() => {
+                  selectIncrement(value);
+                  // Set minimum to 60 if current time is less
+                  if (minutes < 60) {
+                    setMinutes(60);
+                  }
+                }}
               >
-                <Text style={styles.pillValue}>{value}</Text>
-                <Text style={styles.pillLabel}>MINUTES</Text>
+                <Text style={styles.pillValue}>{value === 60 ? '1' : value}</Text>
+                <Text style={styles.pillLabel}>{value === 60 ? 'HOUR' : 'MINUTES'}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -125,9 +131,9 @@ export default function ExploreScreen() {
         </Section>
 
         <TouchableOpacity 
-          style={[styles.ctaButton, minutes === 0 && styles.ctaButtonDisabled]}
+          style={[styles.ctaButton, minutes < 60 && styles.ctaButtonDisabled]}
           onPress={handleCreateSession}
-          disabled={minutes === 0}
+          disabled={minutes < 60}
         >
           <Text style={styles.ctaText}>CREATE SESSION</Text>
         </TouchableOpacity>
