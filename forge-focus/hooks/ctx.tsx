@@ -21,6 +21,7 @@
   import * as AuthSession from "expo-auth-session";
   import * as WebBrowser from "expo-web-browser";
   import { signInOrCreateUser } from "@/api/api";
+  import useAuth0 from "@/app/auth";
 
   WebBrowser.maybeCompleteAuthSession();
 
@@ -30,7 +31,7 @@
 
   type AuthContextType = {
     signIn: () => Promise<User | null>;
-    // signInWithGitHub: () => Promise<User | null>;
+    signInWithGitHub: () => Promise<User | null>;
     signOut: () => Promise<void>;
     session: string | null;
     isLoading: boolean;
@@ -40,7 +41,7 @@
 
   const AuthContext = createContext<AuthContextType>({
     signIn: async () => null,
-    // signInWithGitHub: async () => null,
+    signInWithGitHub: async () => null,
     signOut: async () => {},
     session: null,
     isLoading: false,
@@ -71,6 +72,8 @@
   });
 
   export function SessionProvider({ children }: PropsWithChildren) {
+    const { login } = useAuth0();
+
     const [[isLoading, session], setSession] = useStorageState("session");
     const [user, setUser] = useState<User | null>(null);
     const { db, users } = useRepos();
@@ -133,8 +136,52 @@
     }, [setSession]);
 
     
+    const signInWithGitHub = useCallback(async () => {
+      const auth = await login("github");
+      if (!auth) return null;
+    
+      const { profile: rawProfile, tokens } = auth;
+      const profile: any = rawProfile;
+    
+      // 1️⃣ Send Auth0 ID token to backend for verification
+      const backend = await verifyGithubToken(tokens.id_token);
+      await SecureStore.setItemAsync("jwt", backend.access_token);
+    
+      // 2️⃣ Use profile values for local DB
+      const gh = {
+        username: profile.nickname ?? profile.name ?? "GitHub User",
+        email: profile.email,
+        avatar_url: profile.picture,
+        id: profile.sub.replace("github|", "")
+      };
+    
+      // 3️⃣ Upsert to SQLite
+      let dbUser = await users.getByEmail(gh.email);
+      if (!dbUser) {
+        await db.withTransactionAsync(async () => {
+          dbUser = await users.create({
+            googleId: null,
+            username: gh.username,
+            email: gh.email,
+            profile_pic: gh.avatar_url,
+          });
+        });
+      }
+    
+      // 4️⃣ Backend ensures user exists
+      const backendUser = await signInOrCreateUser();
+      setUser(backendUser);
+    
+      // 5️⃣ Persist session email
+      setSession(gh.email);
+    
+      return dbUser;
+    }, [setSession]);
     
     
+    useEffect(() => {
+      console.log("🔵 SESSION CHANGED:", session);
+    }, [session]);
 
     // -------------------- SIGN OUT --------------------
     const signOut = useCallback(async () => {
@@ -148,7 +195,7 @@
       <AuthContext.Provider
         value={{
           signIn,
-          // signInWithGitHub,
+          signInWithGitHub,
           signOut,
           session,
           isLoading,

@@ -52,7 +52,7 @@ export function useStorageState(key: string): UseStateHook<string> {
         setState(value);
       });
     }
-  }, [key]);
+  }, []);
 
   // Set
   const setValue = useCallback(
