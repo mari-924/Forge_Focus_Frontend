@@ -12,22 +12,43 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { Audio } from 'expo-av';
 import { TabHeader } from '@/components/tab-header';
 import * as SecureStore from 'expo-secure-store';
+
+// Audio source mapping - you can replace these with local files or your own URLs
+const getAudioSource = (audioType: string) => {
+  switch (audioType) {
+    case 'RAIN':
+      // Replace with your rain audio file: require('@/assets/audio/rain.mp3')
+      return { uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' }; // Placeholder
+    case 'JAZZ':
+      // Replace with your jazz audio file: require('@/assets/audio/jazz.mp3')
+      return { uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' }; // Placeholder
+    case 'LOFI':
+      // Replace with your lofi audio file: require('@/assets/audio/lofi.mp3')
+      return { uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' }; // Placeholder
+    default:
+      return null; // NO AUDIO
+  }
+};
 
 export default function SessionScreen() {
   const params = useLocalSearchParams<{
     duration: string;
+    audio?: string;
     sessionId?: string;
     from?: string;
   }>();
   const sessionId = params.sessionId;
   const duration = parseInt(params.duration || '0', 10); // Duration in minutes
   const durationInSeconds = duration * 60;
+  const audioType = params.audio || 'NO AUDIO';
 
   const [remainingTime, setRemainingTime] = useState(durationInSeconds);
   const [isPlaying, setIsPlaying] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const soundRef = useRef<Audio.Sound | null>(null);
   const progress = useSharedValue(1);
   const circleSize = 280;
 
@@ -35,11 +56,76 @@ export default function SessionScreen() {
   const from = params.from; 
   const navigation = useNavigation();
 
+  // Initialize audio
+  useEffect(() => {
+    const setupAudio = async () => {
+      try {
+        await Audio.setAudioModeAsync({
+          staysActiveInBackground: true,
+          shouldDuckAndroid: true,
+          playThroughEarpieceAndroid: false,
+        });
+
+        const audioSource = getAudioSource(audioType);
+        if (audioSource) {
+          const { sound } = await Audio.Sound.createAsync(
+            audioSource,
+            { 
+              isLooping: true,
+              volume: 0.5, // Adjust volume (0.0 to 1.0)
+              shouldPlay: false,
+            }
+          );
+          soundRef.current = sound;
+        }
+      } catch (error) {
+        console.log('Error setting up audio:', error);
+      }
+    };
+
+    setupAudio();
+
+    // Cleanup audio on unmount
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+    };
+  }, [audioType]);
+
   // Initialize progress when component mounts or duration changes
   useEffect(() => {
     progress.value = 1;
     setRemainingTime(durationInSeconds);
   }, [durationInSeconds]);
+
+  // Control audio playback based on timer state
+  useEffect(() => {
+    const controlAudio = async () => {
+      if (!soundRef.current) return;
+
+      try {
+        if (isPlaying && remainingTime > 0) {
+          // Play audio when timer starts
+          const status = await soundRef.current.getStatusAsync();
+          if (!status.isLoaded || !status.isPlaying) {
+            await soundRef.current.playAsync();
+          }
+        } else {
+          // Pause audio when timer pauses or stops
+          const status = await soundRef.current.getStatusAsync();
+          if (status.isLoaded && status.isPlaying) {
+            await soundRef.current.pauseAsync();
+          }
+        }
+      } catch (error) {
+        console.log('Error controlling audio:', error);
+      }
+    };
+
+    controlAudio();
+  }, [isPlaying, remainingTime]);
 
   useEffect(() => {
     if (isPlaying && remainingTime > 0) {
@@ -48,6 +134,10 @@ export default function SessionScreen() {
           if (prev <= 1) {
             setIsPlaying(false);
             progress.value = withTiming(0, { duration: 300 });
+            // Stop audio when timer ends
+            if (soundRef.current) {
+              soundRef.current.stopAsync();
+            }
             return 0;
           }
           const newTime = prev - 1;
