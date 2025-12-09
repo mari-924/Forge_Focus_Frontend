@@ -211,9 +211,9 @@ export default function ExploreScreen() {
           <Text style={styles.ctaText}>CREATE SESSION</Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={[styles.ctaButton, minutes === 0 && styles.ctaButtonDisabled]}
+          style={[styles.ctaButton, minutes < 0 && styles.ctaButtonDisabled]}
           onPress={handleScheduleSession}
-          disabled={minutes === 0}
+          disabled={minutes < 0}
         >
           <Text style={styles.ctaText}>SCHEDULE SESSION</Text>
         </TouchableOpacity>
