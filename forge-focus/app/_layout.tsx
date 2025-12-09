@@ -8,7 +8,7 @@ import { initDB } from '@/db/innit';
 import { SessionProvider } from '@/hooks/ctx';
 import { StyleSheet } from 'react-native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Slot } from 'expo-router';
+import { Slot, Stack } from 'expo-router';
 
 
 
@@ -20,8 +20,13 @@ export default function RootLayout() {
     <SQLiteProvider databaseName='flexzone_database.db' onInit={initDB} >
     <SessionProvider>
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-    <Slot />
-      <StatusBar style="auto" />
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="session" options={{ headerShown: false }} />
+      <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="signup" options={{ headerShown: false }} />
+    </Stack>
+    <StatusBar style="auto" />
     </ThemeProvider>
     </SessionProvider>
     </SQLiteProvider>

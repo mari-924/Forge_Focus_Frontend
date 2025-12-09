@@ -76,6 +76,12 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="session"
+        options={{
+          href: null   
+        }}
+      />
     </Tabs>
   );
 }

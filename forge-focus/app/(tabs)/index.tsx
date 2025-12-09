@@ -9,7 +9,7 @@ import { TabHeader } from '@/components/tab-header';
 import { useEffect, useState, useCallback } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { useSession } from '@/hooks/ctx';
-import { useFocusEffect, router } from 'expo-router';
+import { useFocusEffect, router, usePathname, useRouter } from 'expo-router';
 
 type FocusSession = {
   id: number;
@@ -29,6 +29,9 @@ export default function HomeScreen() {
   const { session: email } = useSession();
   const [previousSessions, setPreviousSessions] = useState<FocusSession[]>([]);
   const [scheduledSessions, setScheduledSessions] = useState<FocusSession[]>([]);
+  
+  const router = useRouter();
+  const pathname = usePathname(); 
 
   const loadSessions = useCallback(async () => {
     if (!email) return;
@@ -67,9 +70,14 @@ export default function HomeScreen() {
 
   // Helper: go to session screen with timer set
   const startSessionWithDuration = (durationMinutes: number) => {
+    console.log('Starting session from:', pathname);
+  
     router.push({
-      pathname: '/session', // adjust if your route is different
-      params: { duration: String(durationMinutes) },
+      pathname: '/session',
+      params: {
+        duration: String(durationMinutes),
+        from: pathname, // <-- pass where we came from
+      },
     });
   };
 

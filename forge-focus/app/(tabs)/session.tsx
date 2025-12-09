@@ -1,5 +1,6 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import {
   StyleSheet,
   Text,
@@ -15,8 +16,12 @@ import { TabHeader } from '@/components/tab-header';
 import * as SecureStore from 'expo-secure-store';
 
 export default function SessionScreen() {
-  const params = useLocalSearchParams<{ duration: string; sessionId?: string }>();
-const sessionId = params.sessionId;
+  const params = useLocalSearchParams<{
+    duration: string;
+    sessionId?: string;
+    from?: string;
+  }>();
+  const sessionId = params.sessionId;
   const duration = parseInt(params.duration || '0', 10); // Duration in minutes
   const durationInSeconds = duration * 60;
 
@@ -25,6 +30,10 @@ const sessionId = params.sessionId;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const progress = useSharedValue(1);
   const circleSize = 280;
+
+  const router = useRouter();
+  const from = params.from; 
+  const navigation = useNavigation();
 
   // Initialize progress when component mounts or duration changes
   useEffect(() => {
@@ -89,8 +98,9 @@ const sessionId = params.sessionId;
   
   const handleEndSession = async () => {
     await completeSession();
-    router.back();
+    router.push('/');   // default back to home
   };
+
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60);
     const seconds = time % 60;
@@ -121,7 +131,6 @@ const sessionId = params.sessionId;
       opacity: opacity * 0.3,
     };
   });
-
   return (
     <View style={styles.container}>
       <TabHeader title="FOCUS SESSION" />
