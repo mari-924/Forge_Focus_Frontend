@@ -6,14 +6,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { TabHeader } from '@/components/tab-header';
 import { useSession } from '@/hooks/ctx';
 import * as SecureStore from 'expo-secure-store';
 
 
-const increments = [30, 45, 50, 60];
-const audioOptions = ['NO AUDIO', 'RAIN', 'TRAIN', 'LOFI'];
+const increments = [30, 60];
+const audioOptions = ['NO AUDIO', 'RAIN', 'JAZZ', 'LOFI'];
 
 export default function ExploreScreen() {
   const { session: email } = useSession();
@@ -76,11 +77,11 @@ export default function ExploreScreen() {
     setSelectedAudio(audio);
   };
 
-  // Adjust timer with arrows
+  // Adjust timer with arrows (minimum 60 minutes)
   const adjustTimer = (delta: number) => {
     if (selectedIncrement !== null) {
       const incrementAmount = delta > 0 ? selectedIncrement : -selectedIncrement;
-      const newMinutes = Math.max(0, minutes + incrementAmount);
+      const newMinutes = Math.max(60, minutes + incrementAmount);
       setMinutes(newMinutes);
     }
   };
@@ -92,15 +93,13 @@ export default function ExploreScreen() {
     const sessionFromServer = await createSessionOnServer({ scheduled: true });
     if (!sessionFromServer) return;
 
-    // ✅ clear UI state
     resetForm();
-
-    // ✅ go back to tabs (Home tab will refetch via useFocusEffect)
-    router.push('/(tabs)'); // or '/(tabs)/index' if that's your home route
+    router.push('/(tabs)'); 
   };
 
+  // Navigate to session page with selected duration and audio (minimum 60 minutes)
   const handleCreateSession = async () => {
-    if (minutes === 0) return;
+    if (minutes < 60) return;
 
     const sessionFromServer = await createSessionOnServer({ scheduled: false });
     if (!sessionFromServer) return;
@@ -134,10 +133,16 @@ export default function ExploreScreen() {
                   styles.pill,
                   selectedIncrement === value && styles.pillSelected,
                 ]}
-                onPress={() => selectIncrement(value)}
+                onPress={() => {
+                  selectIncrement(value);
+                  // Set minimum to 60 if current time is less
+                  if (minutes < 60) {
+                    setMinutes(60);
+                  }
+                }}
               >
-                <Text style={styles.pillValue}>{value}</Text>
-                <Text style={styles.pillLabel}>MINUTES</Text>
+                <Text style={styles.pillValue}>{value === 60 ? '1' : value}</Text>
+                <Text style={styles.pillLabel}>{value === 60 ? 'HOUR' : 'MINUTES'}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -152,16 +157,29 @@ export default function ExploreScreen() {
                 onPress={() => adjustTimer(1)}
                 disabled={selectedIncrement === null}
               >
-                <Text style={[styles.arrowText, selectedIncrement === null && styles.arrowTextDisabled]}>⯅</Text>
-                <Text style={[styles.arrowText, selectedIncrement === null && styles.arrowTextDisabled]}>⯅</Text>
+                <Image
+                  source={require('@/assets/images/up-arrow.png')}
+                  style={[
+                    styles.arrowImage,
+                    selectedIncrement === null && styles.arrowImageDisabled
+                  ]}
+                  contentFit="contain"
+                />
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.arrowButton, selectedIncrement === null && styles.arrowButtonDisabled]}
                 onPress={() => adjustTimer(-1)}
                 disabled={selectedIncrement === null}
               >
-                <Text style={[styles.arrowText, selectedIncrement === null && styles.arrowTextDisabled]}>⯆</Text>
-                <Text style={[styles.arrowText, selectedIncrement === null && styles.arrowTextDisabled]}>⯆</Text>
+                <Image
+                  source={require('@/assets/images/up-arrow.png')}
+                  style={[
+                    styles.arrowImage,
+                    styles.arrowImageDown,
+                    selectedIncrement === null && styles.arrowImageDisabled
+                  ]}
+                  contentFit="contain"
+                />
               </TouchableOpacity>
             </View>
           </View>
@@ -186,16 +204,16 @@ export default function ExploreScreen() {
         </Section>
 
         <TouchableOpacity 
-          style={[styles.ctaButton, minutes === 0 && styles.ctaButtonDisabled]}
+          style={[styles.ctaButton, minutes < 60 && styles.ctaButtonDisabled]}
           onPress={handleCreateSession}
-          disabled={minutes === 0}
+          disabled={minutes < 60}
         >
           <Text style={styles.ctaText}>CREATE SESSION</Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={[styles.ctaButton, minutes === 0 && styles.ctaButtonDisabled]}
+          style={[styles.ctaButton, minutes < 0 && styles.ctaButtonDisabled]}
           onPress={handleScheduleSession}
-          disabled={minutes === 0}
+          disabled={minutes < 0}
         >
           <Text style={styles.ctaText}>SCHEDULE SESSION</Text>
         </TouchableOpacity>
@@ -303,17 +321,21 @@ const styles = StyleSheet.create({
   },
   arrowButton: {
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 4,
   },
   arrowButtonDisabled: {
     opacity: 0.4,
   },
-  arrowText: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    lineHeight: 22,
+  arrowImage: {
+    width: 24,
+    height: 24,
+    tintColor: '#FFFFFF',
   },
-  arrowTextDisabled: {
+  arrowImageDown: {
+    transform: [{ rotate: '180deg' }],
+  },
+  arrowImageDisabled: {
     opacity: 0.5,
   },
   ctaButton: {
