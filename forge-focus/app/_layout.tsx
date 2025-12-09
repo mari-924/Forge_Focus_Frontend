@@ -10,11 +10,14 @@ import { StyleSheet } from 'react-native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Slot, Stack } from 'expo-router';
 
+import * as WebBrowser from 'expo-web-browser';
 
+// Required so browser closes after OAuth login
+WebBrowser.maybeCompleteAuthSession();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
- 
+
   return (
     <GestureHandlerRootView style = {styles.container}>
     <SQLiteProvider databaseName='flexzone_database.db' onInit={initDB} >
@@ -35,7 +38,7 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  container:{
-    flex:1,
+  container: {
+    flex: 1,
   },
 });

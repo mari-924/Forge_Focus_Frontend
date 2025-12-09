@@ -2,9 +2,29 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSession } from "@/hooks/ctx";
+import * as AuthSession from "expo-auth-session";
+import { useEffect, useState } from "react";
+import Constants from "expo-constants";
+import * as SecureStore from "expo-secure-store";
+import useAuth0 from "@/app/auth";
+
+
+const redirectUri = AuthSession.makeRedirectUri({
+  scheme: "forgefocus", // MUST match your scheme
+  path: "redirect",
+});
+if(!Constants.expoConfig?.extra){
+  throw new Error("Missing Expo Config Extra");
+}
+
+const auth0Domain = Constants.expoConfig.extra.auth0Domain;
+const clientId = Constants.expoConfig.extra.auth0ClientId;
 
 export default function LoginScreen() {
-  const { signIn } = useSession();
+  const { login } = useAuth0();
+
+  const { signIn,signInWithGitHub } = useSession();
+
   const handleGoogleLogin = async () => {
     // TODO: Implement Google authentication
     console.log('Google login pressed');
@@ -13,9 +33,8 @@ export default function LoginScreen() {
   };
 
   const handleGitHubLogin = async () => {
-    // TODO: Implement GitHub authentication
-    console.log('GitHub login pressed');
-    router.push('/(tabs)');
+    await signInWithGitHub();
+    router.replace('/(tabs)');
   };
 
   return (

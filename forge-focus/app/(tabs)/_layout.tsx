@@ -12,7 +12,9 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { session, isLoading } = useSession();
   if (isLoading) return null;
+  console.log('Current session:', session);
   if (!session) return <Redirect href="/login" />;
+  // console.log('Current session:', session);
   return (
     <Tabs
       screenOptions={{
