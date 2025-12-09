@@ -1,5 +1,5 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -25,6 +25,8 @@ const getAudioSource = (audioType: string) => {
   }
 };
 
+type Phase = 'prep' | 'study' | 'break';
+
 export default function SessionScreen() {
   const params = useLocalSearchParams<{
     duration: string;
@@ -33,18 +35,26 @@ export default function SessionScreen() {
     from?: string;
   }>();
   const sessionId = params.sessionId;
+
   const duration = parseInt(params.duration || '0', 10);
   const durationInSeconds = duration * 60;
   const audioType = params.audio || 'NO AUDIO';
 
-  // Prep duration (5 minutes)
-  const prepDurationInSeconds = 5 * 60;
+  const totalNonPrepDurationInSeconds = durationInSeconds || 25 * 60;
 
+  // Durations per phase
+  const prepDurationInSeconds = 5 * 60;      // 5 min prep
+  const studyDurationInSeconds = 25 * 60;    // 25 min study
+  const breakDurationInSeconds = 5 * 60;     // 5 min break
+
+  // Phase: 'prep' -> 'study' <-> 'break'
+  const [phase, setPhase] = useState<Phase>('prep');
   const [remainingTime, setRemainingTime] = useState(prepDurationInSeconds);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  // NEW: track whether we're in prep or main session
-  const [isPrepPhase, setIsPrepPhase] = useState(true);
+  // Track how much non-prep time is left in the entire session
+  const [totalRemaining, setTotalRemaining] = useState(totalNonPrepDurationInSeconds);
+  const [isFinished, setIsFinished] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -90,12 +100,15 @@ export default function SessionScreen() {
     };
   }, [audioType]);
 
-  // Initialize progress when component mounts or duration changes
+  // Reset when the total non-prep duration changes (e.g., new route params)
   useEffect(() => {
-    setIsPrepPhase(true);
+    setPhase('prep');
     setRemainingTime(prepDurationInSeconds);
+    setIsPlaying(false);
+    setIsFinished(false);
+    setTotalRemaining(totalNonPrepDurationInSeconds);
     progress.value = 1;
-  }, [durationInSeconds]);
+  }, [totalNonPrepDurationInSeconds]);
 
   // Control audio playback based on timer state
   useEffect(() => {
@@ -124,49 +137,97 @@ export default function SessionScreen() {
     controlAudio();
   }, [isPlaying, remainingTime]);
 
+  const completeSession = useCallback(async () => {
+    if (!sessionId) return;
+    const jwt = await SecureStore.getItemAsync('jwt');
+
+    try {
+      await fetch(`${process.env?.EXPO_PUBLIC_API_URL}/sessions/${sessionId}/complete`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: jwt ? `Bearer ${jwt}` : '',
+        },
+      });
+    } catch (e) {
+      console.log('Failed to mark session complete', e);
+    }
+  }, [sessionId]);
+
   useEffect(() => {
-    if (isPlaying && remainingTime > 0) {
-      
-      intervalRef.current = setInterval(() => {
-        setRemainingTime((prev) => {
-          if (prev <= 1) {
-            // Phase just ended
-            if (isPrepPhase) {
-              // Prep finished -> start main session automatically
-              setIsPrepPhase(false);
-              // Reset progress bar for the main session
-              progress.value = withTiming(1, { duration: 300 });
-              return durationInSeconds; // start main session full
-            } else {
-              // Main session finished
-              setIsPlaying(false);
-              progress.value = withTiming(0, { duration: 300 });
-              // Stop audio when timer ends
-              if (soundRef.current) {
-                soundRef.current.stopAsync();
-              }
-              return 0;
-            }
-          }
-
-          // Still in current phase: decrement
-          const phaseTotal = isPrepPhase
-            ? prepDurationInSeconds
-            : durationInSeconds || 1; // avoid divide-by-zero
-
-          const newTime = prev - 1;
-          const newProgress = newTime / phaseTotal;
-
-          progress.value = withTiming(newProgress, { duration: 1000 });
-          return newTime;
-        });
-      }, 1000);
-    } else {
+    if (!isPlaying || isFinished) {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      return;
     }
+
+    intervalRef.current = setInterval(() => {
+      // 1) Handle per-phase countdown + phase transitions
+      setRemainingTime((prev) => {
+        if (prev <= 1) {
+          // Phase finished -> switch to next (unless session is over by totalRemaining)
+          let nextPhase: Phase;
+          let nextDuration: number;
+
+          if (phase === 'prep') {
+            nextPhase = 'study';
+            nextDuration = studyDurationInSeconds || 1;
+          } else if (phase === 'study') {
+            nextPhase = 'break';
+            nextDuration = breakDurationInSeconds;
+          } else {
+            // from 'break' back to 'study'
+            nextPhase = 'study';
+            nextDuration = studyDurationInSeconds || 1;
+          }
+
+          setPhase(nextPhase);
+          progress.value = withTiming(1, { duration: 300 });
+
+          return nextDuration;
+        }
+
+        // Still in current phase
+        const phaseTotal =
+          phase === 'prep'
+            ? prepDurationInSeconds
+            : phase === 'study'
+            ? studyDurationInSeconds || 1
+            : breakDurationInSeconds;
+
+        const newTime = prev - 1;
+        const newProgress = newTime / phaseTotal;
+
+        progress.value = withTiming(newProgress, { duration: 1000 });
+        return newTime;
+      });
+
+      // 2) Handle total non-prep countdown
+      setTotalRemaining((prevTotal) => {
+        // Do NOT count prep towards the total
+        if (phase === 'prep') return prevTotal;
+
+        if (prevTotal <= 1) {
+          // Session is done (non-prep time exhausted)
+          setIsPlaying(false);
+          setIsFinished(true);
+          progress.value = withTiming(0, { duration: 300 });
+
+          // Stop audio when session ends
+          if (soundRef.current) {
+            soundRef.current.stopAsync();
+          }
+
+          // Optional: auto-mark session complete
+          completeSession();
+
+          return 0;
+        }
+
+        return prevTotal - 1;
+      });
+    }, 1000);
 
     return () => {
       if (intervalRef.current) {
@@ -174,13 +235,24 @@ export default function SessionScreen() {
         intervalRef.current = null;
       }
     };
-  }, [isPlaying, isPrepPhase, durationInSeconds, progress]);
+  }, [
+    isPlaying,
+    isFinished,
+    phase,
+    prepDurationInSeconds,
+    studyDurationInSeconds,
+    breakDurationInSeconds,
+    completeSession,
+    progress,
+  ]);
 
   const handleReset = async () => {
     // Reset back to prep phase
-    setIsPrepPhase(true);
+    setPhase('prep');
     setRemainingTime(prepDurationInSeconds);
     setIsPlaying(false);
+    setIsFinished(false);
+    setTotalRemaining(totalNonPrepDurationInSeconds);
     progress.value = withTiming(1, { duration: 300 });
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -197,22 +269,6 @@ export default function SessionScreen() {
     }
   };
 
-  const completeSession = async () => {
-    if (!sessionId) return;
-    const jwt = await SecureStore.getItemAsync("jwt");
-  
-    try {
-      await fetch(`${process.env?.EXPO_PUBLIC_API_URL}/sessions/${sessionId}/complete`, {
-        method: "PATCH",
-        headers: {
-          Authorization: jwt ? `Bearer ${jwt}` : "",
-        },
-      });
-    } catch (e) {
-      console.log("Failed to mark session complete", e);
-    }
-  };
-  
   const handleEndSession = async () => {
     // Stop audio before ending session
     if (soundRef.current) {
@@ -234,20 +290,26 @@ export default function SessionScreen() {
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
 
-  // Calculate color based on remaining time for current phase
   const getCircleColor = () => {
-    const phaseTotal = isPrepPhase
-      ? prepDurationInSeconds
-      : durationInSeconds || 1;
+    if (isFinished) {
+      return '#38633A';
+    }
+
+    const phaseTotal =
+      phase === 'prep'
+        ? prepDurationInSeconds
+        : phase === 'study'
+        ? studyDurationInSeconds || 1
+        : breakDurationInSeconds;
+
     const percentage = remainingTime / phaseTotal;
 
     if (percentage > 0.66) return '#9ECAA3';
-    if (percentage > 0.33) return '#6B8E6F';
+    if (percentage > 0.33) return '#4A6B4E';
     if (percentage > 0) return '#4A6B4E';
     return '#38633A';
   };
 
-  // Animated style for the progress ring
   const animatedRingStyle = useAnimatedStyle(() => {
     const scale = progress.value;
     return {
@@ -255,7 +317,6 @@ export default function SessionScreen() {
     };
   });
 
-  // Animated style for the inner circle (shows progress)
   const animatedProgressStyle = useAnimatedStyle(() => {
     const opacity = 1 - progress.value;
     return {
@@ -263,14 +324,32 @@ export default function SessionScreen() {
     };
   });
 
-  const displayTime = formatTime(remainingTime);
+  const displayTime = isFinished ? '00:00' : formatTime(remainingTime);
+  const totalDisplayTime = formatTime(Math.max(totalRemaining, 0)); // small total non-prep timer
   const circleColor = getCircleColor();
+
+  const phaseLabelText = isFinished
+    ? 'SESSION COMPLETE'
+    : phase === 'prep'
+    ? 'PREP TIME'
+    : phase === 'study'
+    ? 'STUDY TIME'
+    : 'BREAK TIME';
 
   return (
     <View style={styles.container}>
       <TabHeader title="FOCUS SESSION" />
       
       <View style={styles.content}>
+        {/* Small total non-prep timer */}
+        <View style={styles.totalTimerContainer}>
+          <Text style={styles.totalTimerLabel}>SESSION TIME LEFT</Text>
+          <Text style={styles.totalTimerText}>{totalDisplayTime}</Text>
+          {/* If you literally want seconds instead:
+              <Text style={styles.totalTimerText}>{totalRemaining}s</Text>
+           */}
+        </View>
+
         <View style={styles.timerContainer}>
           {/* Outer ring (background) */}
           <View style={[styles.circleRing, styles.circleRingBackground]} />
@@ -281,7 +360,7 @@ export default function SessionScreen() {
               styles.circleRing, 
               { 
                 borderColor: circleColor,
-                backgroundColor: circleColor + '20', // Add transparency
+                backgroundColor: circleColor + '20',
               },
               animatedRingStyle
             ]} 
@@ -298,20 +377,24 @@ export default function SessionScreen() {
           
           {/* Timer text */}
           <View style={styles.timerTextContainer}>
-            <Text style={styles.phaseLabel}>
-              {isPrepPhase ? 'PREP TIME' : 'FOCUS TIME'}
-            </Text>
+            <Text style={styles.phaseLabel}>{phaseLabelText}</Text>
             <Text style={styles.timerText}>{displayTime}</Text>
           </View>
         </View>
 
         <View style={styles.controls}>
           <TouchableOpacity
-            style={styles.controlButton}
-            onPress={() => setIsPlaying((prev) => !prev)}
+            style={[
+              styles.controlButton,
+              isFinished && { opacity: 0.6 },
+            ]}
+            onPress={() => {
+              if (isFinished) return; // avoid restarting without reset
+              setIsPlaying((prev) => !prev);
+            }}
           >
             <Text style={styles.controlButtonText}>
-              {isPlaying ? 'PAUSE' : 'START'}
+              {isFinished ? 'FINISHED' : isPlaying ? 'PAUSE' : 'START'}
             </Text>
           </TouchableOpacity>
 
@@ -344,7 +427,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    gap: 40,
+    gap: 32,
+  },
+  totalTimerContainer: {
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  totalTimerLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#E6F2E7',
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  totalTimerText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 1,
   },
   timerContainer: {
     alignItems: 'center',
