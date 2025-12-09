@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/google-logo.png",
     "scheme": "forgefocus",
+    
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -67,6 +68,8 @@
       "googleClientIdIos": "REPLACE_ME_IOS.apps.googleusercontent.com",
       "googleClientIdAndroid": "REPLACE_ME_ANDROID.apps.googleusercontent.com",
       "router": {},
+      "auth0Domain": "dev-fjosqdjeu3tei3ei.us.auth0.com",
+      "auth0ClientId": "0bIqb2fv6dq8pdP5KqrFrDJfi9rkN09D",
       "eas": {
         "projectId": "6b313d2e-7ed2-4cfa-b414-4af0b5be81b1"
       }
