@@ -105,7 +105,7 @@ export default function ExploreScreen() {
     if (!sessionFromServer) return;
 
     router.push({
-      pathname: '/session',
+      pathname: '/(tabs)/session',
       params: { 
         duration: minutes.toString(),
         audio: selectedAudio || 'NO AUDIO',

@@ -73,11 +73,12 @@ export default function HomeScreen() {
     }, [loadSessions])
   );
 
-  const startSessionWithDuration = (durationMinutes: number, id?: number) => {
+  const startSessionWithDuration = (durationMinutes: number, id?: number, audioFile?: string | null) => {
     router.push({
-      pathname: '/session',
+      pathname: '/(tabs)/session',
       params: {
         duration: String(durationMinutes),
+        audio: audioFile || 'NO AUDIO',
         sessionId: id ? String(id) : undefined,
         from: pathname,
       },
@@ -178,7 +179,7 @@ export default function HomeScreen() {
 
                       <TouchableOpacity
                         style={{ flex: 1 }}
-                        onPress={() => startSessionWithDuration(s.durationMinutes, s.id)}
+                        onPress={() => startSessionWithDuration(s.durationMinutes, s.id, s.audioFile)}
                       >
                         <Text style={styles.cardTitle}>{s.title}</Text>
                         <Text style={styles.cardSubtitle}>
@@ -215,7 +216,7 @@ export default function HomeScreen() {
                     <View key={s.id} style={styles.card}>
                       <TouchableOpacity
                         style={{ flex: 1 }}
-                        onPress={() => startSessionWithDuration(s.durationMinutes, s.id)}
+                        onPress={() => startSessionWithDuration(s.durationMinutes, s.id, s.audioFile)}
                       >
                         <Text style={styles.cardTitle}>{s.title}</Text>
                         <Text style={styles.cardSubtitle}>
