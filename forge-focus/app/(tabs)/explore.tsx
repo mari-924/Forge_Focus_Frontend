@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -10,6 +10,7 @@ import { router } from 'expo-router';
 import { TabHeader } from '@/components/tab-header';
 import { useSession } from '@/hooks/ctx';
 import * as SecureStore from 'expo-secure-store';
+import { Audio } from 'expo-av';
 
 
 const increments = [30, 45, 50, 60];
@@ -21,6 +22,49 @@ export default function ExploreScreen() {
   const [minutes, setMinutes] = useState(0);
   const [selectedIncrement, setSelectedIncrement] = useState<number | null>(null);
   const [selectedAudio, setSelectedAudio] = useState<string | null>(null);
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+
+  // Clean up audio on unmount
+  useEffect(() => {
+    return () => {
+      if (sound) {
+        sound.unloadAsync();
+      }
+    };
+  }, [sound]);
+
+  const playLofiAudio = async () => {
+    try {
+      // Stop and unload any currently playing sound
+      if (sound) {
+        await sound.stopAsync();
+        await sound.unloadAsync();
+        setSound(null);
+      }
+
+      // Load and play the lofi audio
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        require('../../lofi.mp3'),
+        { shouldPlay: true, isLooping: true }
+      );
+      setSound(newSound);
+      await newSound.playAsync();
+    } catch (error) {
+      console.error('Error playing lofi audio:', error);
+    }
+  };
+
+  const stopLofiAudio = async () => {
+    try {
+      if (sound) {
+        await sound.stopAsync();
+        await sound.unloadAsync();
+        setSound(null);
+      }
+    } catch (error) {
+      console.error('Error stopping lofi audio:', error);
+    }
+  };
 
   const resetForm = () => {
     setMinutes(0);
@@ -72,8 +116,16 @@ export default function ExploreScreen() {
   };
 
   // Select audio option
-  const selectAudio = (audio: string) => {
+  const selectAudio = async (audio: string) => {
     setSelectedAudio(audio);
+    
+    // Play lofi audio when LOFI button is selected
+    if (audio === 'LOFI') {
+      await playLofiAudio();
+    } else {
+      // Stop audio if switching to another option
+      await stopLofiAudio();
+    }
   };
 
   // Adjust timer with arrows
