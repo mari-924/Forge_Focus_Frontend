@@ -4,12 +4,15 @@ import {
   Text,
   View,
   TouchableOpacity,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { TabHeader } from '@/components/tab-header';
 import { useEffect, useState, useCallback } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { useSession } from '@/hooks/ctx';
-import { useFocusEffect, router, usePathname, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, usePathname } from 'expo-router';
+import { updateSession, deleteSession } from "@/api/sessions";
 
 type FocusSession = {
   id: number;
@@ -30,6 +33,9 @@ export default function HomeScreen() {
   const [previousSessions, setPreviousSessions] = useState<FocusSession[]>([]);
   const [scheduledSessions, setScheduledSessions] = useState<FocusSession[]>([]);
   
+  const [editing, setEditing] = useState<FocusSession | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+
   const router = useRouter();
   const pathname = usePathname(); 
 
@@ -40,15 +46,14 @@ export default function HomeScreen() {
 
     try {
       const res = await fetch(
-        `${process.env?.EXPO_PUBLIC_API_URL}/sessions/user/${encodeURIComponent(
-          email
-        )}`,
+        `${process.env?.EXPO_PUBLIC_API_URL}/sessions/user/${encodeURIComponent(email)}`,
         {
           headers: {
             Authorization: jwt ? `Bearer ${jwt}` : '',
           },
         }
       );
+
       if (!res.ok) {
         console.log('Failed to load sessions', await res.text());
         return;
@@ -68,123 +73,176 @@ export default function HomeScreen() {
     }, [loadSessions])
   );
 
-  // Helper: go to session screen with timer set
-  const startSessionWithDuration = (durationMinutes: number) => {
-    console.log('Starting session from:', pathname);
-  
+  const startSessionWithDuration = (durationMinutes: number, id?: number) => {
     router.push({
       pathname: '/session',
       params: {
         duration: String(durationMinutes),
-        from: pathname, // <-- pass where we came from
+        sessionId: id ? String(id) : undefined,
+        from: pathname,
       },
     });
   };
 
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.inner}>
-        <TabHeader title="HOME PAGE" />
+  // Save changes
+  const saveEdit = async () => {
+    if (!editing) return;
 
-        <View style={styles.content}>
-          {/* Friends Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>FRIENDS</Text>
-            <TouchableOpacity
-              style={styles.sectionBar}
-              onPress={() => {
-                // TODO: navigate to friends screen
-                console.log('Friends pressed');
-              }}
-            >
-              <Text style={styles.sectionBarText}>View Friends</Text>
-              <Text style={styles.chevron}>›</Text>
+    await updateSession(editing.id, {
+      durationMinutes: editing.durationMinutes,
+      audioFile: editing.audioFile,
+    });
+
+    setModalVisible(false);
+    loadSessions();
+  };
+
+  // Delete session
+  const handleDelete = async () => {
+    if (!editing) return;
+
+    await deleteSession(editing.id);
+    setModalVisible(false);
+    loadSessions();
+  };
+
+  const openEditModal = (session: FocusSession) => {
+    setEditing(session);
+    setModalVisible(true);
+  };
+
+  return (
+    <>
+      {/* EDIT + DELETE MODAL */}
+      <Modal visible={modalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Edit Session</Text>
+
+            <TextInput
+              style={styles.modalInput}
+              keyboardType="numeric"
+              value={String(editing?.durationMinutes || "")}
+              onChangeText={(t) =>
+                setEditing((prev) => ({ ...prev!, durationMinutes: Number(t) }))
+              }
+              placeholder="Duration (minutes)"
+            />
+
+            <TextInput
+              style={styles.modalInput}
+              value={editing?.audioFile || ""}
+              placeholder="Music file name"
+              onChangeText={(t) =>
+                setEditing((prev) => ({ ...prev!, audioFile: t }))
+              }
+            />
+
+            <TouchableOpacity style={styles.saveBtn} onPress={saveEdit}>
+              <Text style={styles.saveText}>Save Changes</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
+              <Text style={styles.deleteText}>Delete Session</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <Text style={{ color: "white", marginTop: 12 }}>Cancel</Text>
             </TouchableOpacity>
           </View>
+        </View>
+      </Modal>
 
-          {/* Previous Sessions */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>PREV SESSIONS</Text>
 
-            {previousSessions.length === 0 ? (
-              <Text style={styles.emptyText}>No sessions yet.</Text>
-            ) : (
-              <View style={styles.cardList}>
-                {previousSessions.map((s) => (
-                  <TouchableOpacity
-                    key={s.id}
-                    style={styles.card}
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      // Start a new session using this session's duration
-                      startSessionWithDuration(s.durationMinutes);
-                    }}
-                  >
-                    <View style={styles.cardTextContainer}>
-                      <Text style={styles.cardTitle}>
-                        {s.title || `Session #${s.id}`}
-                      </Text>
-                      <Text style={styles.cardSubtitle}>
-                        {s.notes
-                          ? s.notes
-                          : s.audioFile
-                          ? `Audio: ${s.audioFile}`
-                          : 'No notes'}
-                      </Text>
+      {/* MAIN SCREEN */}
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.inner}>
+          <TabHeader title="HOME PAGE" />
+
+          <View style={styles.content}>
+            
+            {/* Previous Sessions */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>PREV SESSIONS</Text>
+
+              {previousSessions.length === 0 ? (
+                <Text style={styles.emptyText}>No sessions yet.</Text>
+              ) : (
+                <View style={styles.cardList}>
+                  {previousSessions.map((s) => (
+                    <View key={s.id} style={styles.card}>
+
+                      <TouchableOpacity
+                        style={{ flex: 1 }}
+                        onPress={() => startSessionWithDuration(s.durationMinutes, s.id)}
+                      >
+                        <Text style={styles.cardTitle}>{s.title}</Text>
+                        <Text style={styles.cardSubtitle}>
+                          {s.audioFile ? `Time: ${s.durationMinutes} Minutes` : "No music"}
+                          
+
+                        </Text>
+                        <Text style={styles.cardSubtitle}>
+                          {s.audioFile ? `Music: ${s.audioFile}` : "No music"}
+                          
+
+                        </Text>
+                      </TouchableOpacity>
+
+                      {/* EDIT */}
+                      <TouchableOpacity onPress={() => openEditModal(s)}>
+                        <Text style={styles.icon}>Edit</Text>
+                      </TouchableOpacity>
                     </View>
-                    <Text style={styles.cardMeta}>
-                      {s.durationMinutes} min
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-          {/* Scheduled Sessions */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>SCHEDULED SESSIONS</Text>
+                  ))}
+                </View>
+              )}
+            </View>
 
-            {scheduledSessions.length === 0 ? (
-              <Text style={styles.emptyText}>No scheduled sessions.</Text>
-            ) : (
-              <View style={styles.cardList}>
-                {scheduledSessions.map((s) => (
-                  <TouchableOpacity
-                    key={s.id}
-                    style={styles.card}
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      // Start session with scheduled duration
-                      startSessionWithDuration(s.durationMinutes);
-                    }}
-                  >
-                    <View style={styles.cardTextContainer}>
-                      <Text style={styles.cardTitle}>
-                        {s.title || `Session #${s.id}`}
-                      </Text>
-                      <Text style={styles.cardSubtitle}>
-                        {s.notes
-                          ? s.notes
-                          : s.audioFile
-                          ? `Audio: ${s.audioFile}`
-                          : 'No notes'}
-                      </Text>
+            {/* Scheduled Sessions */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>SCHEDULED SESSIONS</Text>
+
+              {scheduledSessions.length === 0 ? (
+                <Text style={styles.emptyText}>No scheduled sessions.</Text>
+              ) : (
+                <View style={styles.cardList}>
+                  {scheduledSessions.map((s) => (
+                    <View key={s.id} style={styles.card}>
+                      <TouchableOpacity
+                        style={{ flex: 1 }}
+                        onPress={() => startSessionWithDuration(s.durationMinutes, s.id)}
+                      >
+                        <Text style={styles.cardTitle}>{s.title}</Text>
+                        <Text style={styles.cardSubtitle}>
+                          {s.audioFile ? `Time: ${s.durationMinutes} Minutes` : "No music"}
+                          
+
+                        </Text>
+                        <Text style={styles.cardSubtitle}>
+                          {s.audioFile ? `Music: ${s.audioFile}` : "No music"}
+                          
+
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity onPress={() => openEditModal(s)}>
+                      <Text style={styles.icon}>Edit</Text>
+                      </TouchableOpacity>
                     </View>
-                    <Text style={styles.cardMeta}>
-                      {s.durationMinutes} min
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+                  ))}
+                </View>
+              )}
+            </View>
+
           </View>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </>
   );
 }
 
@@ -210,38 +268,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#FFFFFF',
-    textTransform: 'uppercase',
     letterSpacing: 1.5,
-    marginBottom: 8,
-    paddingTop: 8,
-    paddingBottom: 4,
   },
-
-  // Friends bar
-  sectionBar: {
-    width: '100%',
-    backgroundColor: '#4A6B4E',
-    borderRadius: 10,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    minHeight: 60,
-  },
-  sectionBarText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  chevron: {
-    fontSize: 36,
-    color: '#FFFFFF',
-    fontWeight: '200',
-    lineHeight: 36,
-  },
-
-  // Cards
   cardList: {
     gap: 12,
   },
@@ -254,31 +282,72 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 64,
-  },
-  cardTextContainer: {
-    flexShrink: 1,
   },
   cardTitle: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
-    marginBottom: 4,
   },
   cardSubtitle: {
     color: '#E0EDE1',
     fontSize: 13,
   },
-  cardMeta: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 12,
+  icon: {
+    fontSize: 24,
+    color: "white",
+    paddingHorizontal: 8,
   },
 
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalCard: {
+    width: "80%",
+    backgroundColor: "#4A6B4E",
+    padding: 20,
+    borderRadius: 12,
+  },
+  modalTitle: {
+    color: "white",
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 16,
+  },
+  modalInput: {
+    backgroundColor: "#FFF",
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  saveBtn: {
+    backgroundColor: "#8FA892",
+    padding: 14,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  saveText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  deleteBtn: {
+    backgroundColor: "#B44141",
+    padding: 14,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  deleteText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
   emptyText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    opacity: 0.8,
+    color: "#FFFFFF",
+    opacity: 0.7,
   },
 });
