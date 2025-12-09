@@ -58,7 +58,13 @@
           }
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "react-native-auth0",
+        {
+          "domain": "dev-fjosqdjeu3tei3ei.us.auth0.com"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
