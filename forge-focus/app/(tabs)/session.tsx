@@ -56,7 +56,6 @@ export default function SessionScreen() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
   const progress = useSharedValue(1);
-  const circleSize = 280;
 
   const router = useRouter();
 
