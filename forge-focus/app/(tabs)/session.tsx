@@ -161,13 +161,22 @@ export default function SessionScreen() {
     };
   }, [isPlaying, durationInSeconds, progress]);
 
-  const handleReset = () => {
+  const handleReset = async () => {
     setRemainingTime(durationInSeconds);
     setIsPlaying(false);
     progress.value = withTiming(1, { duration: 300 });
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
+    }
+    // Stop and reset audio
+    if (soundRef.current) {
+      try {
+        await soundRef.current.stopAsync();
+        await soundRef.current.setPositionAsync(0);
+      } catch (error) {
+        console.log('Error resetting audio:', error);
+      }
     }
   };
   const completeSession = async () => {
@@ -187,6 +196,16 @@ export default function SessionScreen() {
   };
   
   const handleEndSession = async () => {
+    // Stop audio before ending session
+    if (soundRef.current) {
+      try {
+        await soundRef.current.stopAsync();
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      } catch (error) {
+        console.log('Error stopping audio:', error);
+      }
+    }
     await completeSession();
     router.push('/');   // default back to home
   };
